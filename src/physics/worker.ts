@@ -1,12 +1,14 @@
 /// <reference lib="webworker" />
 import { Simulation } from './simulation.ts';
-import { HZ, type FieldSettings, type Pointer } from '../shared/field.ts';
+import { COUNT, HZ, type FieldSettings, type Pointer } from '../shared/field.ts';
 
 const simulation = new Simulation();
-let previous = performance.now(), remainder = 0, lastSent = 0, visible = true;
+let previous = performance.now(), remainder = 0, lastSent = 0, visible = true, spare: Float32Array | undefined;
 const worker = self as unknown as DedicatedWorkerGlobalScope;
 function send() {
-  const positions = simulation.positions.slice();
+  const positions = spare ?? new Float32Array(COUNT * 3);
+  spare = undefined;
+  positions.set(simulation.positions);
   worker.postMessage({ type: 'frame', positions, time: simulation.time, form: simulation.settings.form }, [positions.buffer]);
 }
 worker.onmessage = ({ data }: MessageEvent) => {
@@ -17,6 +19,7 @@ worker.onmessage = ({ data }: MessageEvent) => {
   if (data.type === 'wheel' && !simulation.settings.paused) simulation.swirl(data.kick);
   if (data.type === 'reset') { simulation.reset(); send(); }
   if (data.type === 'visibility') { visible = data.visible; previous = performance.now(); remainder = 0; }
+  if (data.type === 'recycle' && data.buffer instanceof ArrayBuffer && data.buffer.byteLength === COUNT * 12) spare = new Float32Array(data.buffer);
 };
 setInterval(() => {
   const now = performance.now();

@@ -7,6 +7,7 @@ export class ParticleField extends HTMLElement {
   private renderer?: FieldRenderer;
   private canvas?: HTMLCanvasElement;
   private worker?: Worker;
+  private workerTarget?: Float32Array;
   private socket?: WebSocket;
   private privateActive = false;
   private resizeObserver?: ResizeObserver;
@@ -190,7 +191,13 @@ export class ParticleField extends HTMLElement {
     this.worker = new Worker('/worker.js', { type: 'module', name: 'mesh-field' });
     this.worker.addEventListener('message', ({ data }) => {
       if (this.privateActive || data.type !== 'frame') return;
-      if (data.positions instanceof Float32Array && data.positions.length === COUNT * 3) this.frame(data.positions, data.time, data.form);
+      if (data.positions instanceof Float32Array && data.positions.length === COUNT * 3) {
+        if (data.form !== this.settings.form) { this.worker?.postMessage({ type: 'recycle', buffer: data.positions.buffer }, [data.positions.buffer as ArrayBuffer]); return; }
+        const spare = this.workerTarget;
+        this.workerTarget = data.positions;
+        this.frame(data.positions, data.time, data.form);
+        if (spare && spare !== data.positions && this.worker) this.worker.postMessage({ type: 'recycle', buffer: spare.buffer }, [spare.buffer as ArrayBuffer]);
+      }
     });
     this.worker.addEventListener('error', error => this.failure(error));
     this.worker.postMessage({ type: 'settings', settings: this.settings });
