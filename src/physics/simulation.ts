@@ -19,6 +19,7 @@ export class Simulation {
   get torsion() { return this.wheel.amount; }
   private pulses: { x: number; y: number; z: number; age: number; force: number }[] = [];
   private rowTwist = new Float32Array(ROWS);
+  private excitement = 0;
 
   constructor(settings?: Partial<FieldSettings>) {
     for (let row = 0; row < ROWS; row++) this.rowTwist[row] = .25 + .75 * Math.sin(row / ROWS * Math.PI * 2);
@@ -40,6 +41,7 @@ export class Simulation {
     if (restartClock) { this.time = 0; this.ticks = 0; }
     this.wheel.reset();
     this.pulses.length = 0;
+    this.excitement = 0;
     writeShape(this.positions, this.settings.form, this.time);
     this.anchors.set(this.positions);
     this.desired.set(this.positions);
@@ -51,6 +53,7 @@ export class Simulation {
     if (![x, y, z, force].every(Number.isFinite)) return;
     if (this.pulses.length >= 6) this.pulses.shift();
     this.pulses.push({ x, y, z, age: 0, force: Math.max(0, Math.min(2, force)) });
+    this.excitement = Math.min(1, this.excitement + force * .25);
   }
 
   private grabDistance(i: number, grabbed: number) {
@@ -70,6 +73,7 @@ export class Simulation {
     if (!Number.isInteger(index) || index < 0 || index >= COUNT || ![vx, vy, vz].every(Number.isFinite)) return;
     const speed = Math.sqrt(vx * vx + vy * vy + vz * vz);
     if (speed < .4) return;
+    this.excitement = Math.min(1, this.excitement + speed * .09);
     const scale = Math.min(1, 9 / speed) * .9;
     for (let i = 0; i < COUNT; i++) {
       const distance = this.grabDistance(i, index);
@@ -115,7 +119,8 @@ export class Simulation {
     const t = this.time * .34;
     const drift = turbulence * .65 * (.85 + .15 * Math.sin(this.time * .23));
     const restore = 9 + tension * 14;
-    const damping = Math.exp(-(1.5 + tension * 1.1) * dt);
+    this.excitement *= Math.exp(-dt * 2.4);
+    const damping = Math.exp(-(1.5 + tension * 1.1) * (1 - this.excitement * .3) * dt);
     const pointer = this.pointer;
     const grabbed = pointer.index ?? -1;
     const grabbing = pointer.down && grabbed >= 0 && grabbed < COUNT;
