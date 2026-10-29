@@ -37,8 +37,11 @@ export class ParticleField extends HTMLElement {
   private pressTime = 0;
   private cursorInside = false;
   private reticle = { x: 0, y: 0, vx: 0, vy: 0, seeded: false };
+  private lastInteract = 0;
+  private lastIdlePulse = 0;
 
   connectedCallback() {
+    this.lastInteract = performance.now();
     this.lifetime = new AbortController();
     const { signal } = this.lifetime;
     const root = this.shadowRoot ?? this.attachShadow({ mode: 'open' });
@@ -109,6 +112,7 @@ export class ParticleField extends HTMLElement {
       if (!this.renderer || this.settings.paused || this.pointer.down) return;
       const delta = wheelDelta(event.deltaY, event.deltaMode, this.clientHeight);
       const axis = this.renderer.axis();
+      this.lastInteract = performance.now();
       this.send({ type: 'wheel', kick: { delta, ...axis } }); this.renderer.wheel(delta); this.requestFrame();
     }, { signal, passive: false });
     window.addEventListener('blur', () => this.clearContact(), { signal });
@@ -160,6 +164,7 @@ export class ParticleField extends HTMLElement {
   }
 
   private updateContact() {
+    if (this.pointer.active) this.lastInteract = performance.now();
     this.renderer?.touch(this.pointer, this.clientWidth ? this.screen.x / this.clientWidth : .5, this.clientHeight ? 1 - this.screen.y / this.clientHeight : .5, this.cursorInside);
     this.style.cursor = this.pointer.down ? 'grabbing' : this.pointer.active ? 'grab' : '';
     this.send({ type: 'pointer', pointer: this.pointer }); this.requestFrame();
@@ -266,6 +271,11 @@ export class ParticleField extends HTMLElement {
     const blend = 1 - Math.exp(-delta * 40);
     for (let i = 0; i < this.displayed.length; i++) this.displayed[i] += (this.target[i]! - this.displayed[i]!) * blend;
     this.displayedTime += (this.targetTime - this.displayedTime) * blend;
+    if (!this.settings.paused && now - this.lastInteract > 7000 && now - this.lastIdlePulse > 9000) {
+      this.lastIdlePulse = now;
+      const index = (Math.floor(now / 9000) * 7919) % COUNT, at = index * 3;
+      this.send({ type: 'pulse', x: this.displayed[at]!, y: this.displayed[at + 1]!, z: this.displayed[at + 2]!, force: .35 });
+    }
     this.renderer.render(this.displayed, this.displayedTime, delta);
     this.drawContact(delta);
     if (!this.settings.paused || now < this.dirtyUntil) this.raf = requestAnimationFrame(time => this.render(time));
