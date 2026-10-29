@@ -159,6 +159,7 @@ export class FieldRenderer {
   private bloomA?: Target;
   private bloomB?: Target;
   private dpr = 1;
+  private quality = 1;
   private width = 1;
   private height = 1;
   private aspect = 1;
@@ -271,9 +272,15 @@ export class FieldRenderer {
 
   private deleteTarget(target?: Target) { if (target) { this.gl.deleteTexture(target.texture); this.gl.deleteFramebuffer(target.framebuffer); } }
 
+  setQuality(quality: number) {
+    if (quality === this.quality) return;
+    this.quality = quality;
+    this.resize(this.width, this.height);
+  }
+
   resize(width: number, height: number) {
     this.width = Math.max(1, width); this.height = Math.max(1, height); this.aspect = this.width / this.height;
-    this.dpr = Math.min(window.devicePixelRatio || 1, 2);
+    this.dpr = Math.min(window.devicePixelRatio || 1, 2) * this.quality;
     const w = Math.round(this.width * this.dpr), h = Math.round(this.height * this.dpr);
     if (this.canvas.width === w && this.canvas.height === h && this.scene) return;
     this.canvas.width = w; this.canvas.height = h;

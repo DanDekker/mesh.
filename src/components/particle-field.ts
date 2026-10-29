@@ -40,6 +40,9 @@ export class ParticleField extends HTMLElement {
   private lastInteract = 0;
   private lastIdlePulse = 0;
   private lastTap = { time: 0, x: 0, y: 0 };
+  private frameEma = 1 / 60;
+  private quality = 1;
+  private qualityFrames = 0;
 
   connectedCallback() {
     this.lastInteract = performance.now();
@@ -274,6 +277,12 @@ export class ParticleField extends HTMLElement {
     if (!this.renderer || document.hidden) return;
     const delta = this.previous ? Math.min(.05, (now - this.previous) / 1000) : 1 / 60;
     this.previous = now;
+    this.frameEma += (delta - this.frameEma) * .04;
+    if (++this.qualityFrames > 90 && this.frameEma > .023 && this.quality > .62) {
+      this.quality = Math.max(.62, this.quality * .78); this.renderer.setQuality(this.quality); this.qualityFrames = 0;
+    } else if (this.qualityFrames > 600 && this.frameEma < .0125 && this.quality < 1) {
+      this.quality = Math.min(1, this.quality * 1.2); this.renderer.setQuality(this.quality); this.qualityFrames = 0;
+    }
     const blend = 1 - Math.exp(-delta * 40);
     for (let i = 0; i < this.displayed.length; i++) this.displayed[i] += (this.target[i]! - this.displayed[i]!) * blend;
     this.displayedTime += (this.targetTime - this.displayedTime) * blend;
