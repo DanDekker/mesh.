@@ -113,6 +113,7 @@ export class Simulation {
     this.updateLengths();
     this.previous.set(p);
     const t = this.time * .34;
+    const drift = turbulence * .65 * (.85 + .15 * Math.sin(this.time * .23));
     const restore = 9 + tension * 14;
     const damping = Math.exp(-(1.5 + tension * 1.1) * dt);
     const pointer = this.pointer;
@@ -127,9 +128,9 @@ export class Simulation {
     const pulseAmplitude = pulses.map(pulse => Math.exp(-pulse.age * 2.2) * pulse.force * 33);
     for (let i = 0; i < COUNT; i++) {
       const a = i * 3, x = p[a]!, y = p[a + 1]!, z = p[a + 2]!;
-      let fx = (this.anchors[a]! - x) * restore + (Math.sin(y * 2.3 + t) + Math.cos(z * 1.7 - t * .7)) * turbulence * .65;
-      let fy = (this.anchors[a + 1]! - y) * restore + (Math.sin(z * 2.1 + t * .8) - Math.cos(x * 1.8 + t)) * turbulence * .65;
-      let fz = (this.anchors[a + 2]! - z) * restore + (Math.sin(x * 1.9 - t) + Math.cos(y * 2 + t * .5)) * turbulence * .65;
+      let fx = (this.anchors[a]! - x) * restore + ((Math.sin(y * 1.15 - t * .6) + Math.cos(z * .9 + t * .4)) * .68 + (Math.sin(y * 2.3 + t) + Math.cos(z * 1.7 - t * .7)) * .32) * drift;
+      let fy = (this.anchors[a + 1]! - y) * restore + ((Math.sin(z * 1.05 + t * .5) - Math.cos(x * .95 - t * .45)) * .68 + (Math.sin(z * 2.1 + t * .8) - Math.cos(x * 1.8 + t)) * .32) * drift;
+      let fz = (this.anchors[a + 2]! - z) * restore + ((Math.sin(x * 1.1 + t * .55) + Math.cos(y + t * .35)) * .68 + (Math.sin(x * 1.9 - t) + Math.cos(y * 2 + t * .5)) * .32) * drift;
       if (grabbing) {
         const distance = this.grabDistance(i, grabbed);
         if (distance < 9) {
