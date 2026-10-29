@@ -22,6 +22,9 @@ export class ParticleField extends HTMLElement {
   private connectionTimer?: ReturnType<typeof setTimeout>;
   private pointer: Pointer = { ...IDLE_POINTER };
   private feedback?: SVGSVGElement;
+  private reticleEl?: SVGCircleElement;
+  private contactEl?: SVGCircleElement;
+  private tetherEl?: SVGLineElement;
   private screen = { x: 0, y: 0 };
   private press = { x: 0, y: 0 };
   private grab?: SurfaceGrab;
@@ -46,6 +49,7 @@ export class ParticleField extends HTMLElement {
     </style><canvas aria-hidden="true"></canvas><svg class="feedback" aria-hidden="true"><line class="tether"/><circle class="reticle" r="6"/><circle class="contact" r="1.8"/></svg>`;
     this.canvas = root.querySelector('canvas')!;
     this.feedback = root.querySelector('.feedback')!;
+    this.reticleEl = root.querySelector('.reticle')!; this.contactEl = root.querySelector('.contact')!; this.tetherEl = root.querySelector('.tether')!;
     writeShape(this.target, this.settings.form); this.displayed.set(this.target);
     try { this.renderer = new FieldRenderer(this.canvas); }
     catch (error) { this.failure(error); return; }
@@ -163,13 +167,12 @@ export class ParticleField extends HTMLElement {
     if (!this.feedback || !this.renderer) return;
     this.feedback.style.opacity = this.pointer.active ? '1' : '0';
     const charge = this.chargeAt(performance.now());
-    const reticle = this.feedback.querySelector('.reticle')!;
+    const reticle = this.reticleEl!, contact = this.contactEl!, tether = this.tetherEl!;
     reticle.setAttribute('cx', String(this.screen.x)); reticle.setAttribute('cy', String(this.screen.y));
     reticle.setAttribute('r', this.pointer.down ? String(12 - charge * 4.5) : '6');
-    (reticle as SVGCircleElement).style.opacity = String(.6 + charge * .35);
+    reticle.style.opacity = String(.6 + charge * .35);
     const index = this.pointer.index ?? -1;
     const point = index >= 0 ? this.renderer.point(index) : null;
-    const contact = this.feedback.querySelector('.contact')!, tether = this.feedback.querySelector<SVGLineElement>('.tether')!;
     contact.setAttribute('cx', String(point?.screenX ?? this.screen.x)); contact.setAttribute('cy', String(point?.screenY ?? this.screen.y));
     contact.setAttribute('r', String(1.8 + charge * 1.7));
     tether.setAttribute('x1', String(this.screen.x)); tether.setAttribute('y1', String(this.screen.y));

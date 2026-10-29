@@ -18,7 +18,7 @@ export class FieldCamera {
     if (held && this.fitted) return;
     this.view.rotation = [.86 + Math.sin(this.time * .055) * .17, .12 + this.time * .045, -.31 + Math.sin(this.time * .04) * .13];
     // A local pull must not pan or resize the rest of the sculpture.
-    const framing = fit(this.reference, this.view.rotation, this.view.aspect);
+    const framing = fit(this.reference, this.view.rotation, this.view.aspect, 3);
     const blend = this.fitted ? 1 - Math.exp(-delta * 2.5) : 1;
     this.view.scale += (framing.scale - this.view.scale) * blend;
     for (let i = 0; i < 2; i++) this.view.center[i] += (framing.center[i]! - this.view.center[i]!) * blend;
