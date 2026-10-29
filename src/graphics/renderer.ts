@@ -163,6 +163,8 @@ export class FieldRenderer {
   private height = 1;
   private aspect = 1;
   private wheelEnergy = 0;
+  private formFlash = 0;
+  private displayEnergy = 0;
   private contact: Pointer = { x: 0, y: 0, z: 0, active: false, down: false };
   private contactStrength = 0;
   private cursorTarget = { x: .5, y: .5, inside: false };
@@ -295,6 +297,7 @@ export class FieldRenderer {
   topology(form: Form) {
     if (this.form === form) return;
     this.form = form;
+    this.formFlash = 1;
     const gl = this.gl, edges = createEdges(form);
     gl.bindVertexArray(this.meshVAO); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.edgeBuffer);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, edges, gl.STATIC_DRAW); this.edgeCount = edges.length; gl.bindVertexArray(null);
@@ -351,7 +354,7 @@ export class FieldRenderer {
     gl.uniform1f(this.uniform(program, 'uScale'), scale); gl.uniform1f(this.uniform(program, 'uAspect'), this.aspect);
     gl.uniform2f(this.uniform(program, 'uCenter'), center[0]!, center[1]!);
     gl.uniform3f(this.uniform(program, 'uPointer'), this.contact.x, this.contact.y, this.contact.z);
-    gl.uniform1f(this.uniform(program, 'uContact'), this.contactStrength); gl.uniform1f(this.uniform(program, 'uEnergy'), this.wheelEnergy);
+    gl.uniform1f(this.uniform(program, 'uContact'), this.contactStrength); gl.uniform1f(this.uniform(program, 'uEnergy'), this.displayEnergy);
     gl.uniform1f(this.uniform(program, 'uSurface'), dust ? 0 : isSurface(this.form) ? 1 : 0);
     gl.uniform1f(this.uniform(program, 'uDpr'), this.dpr); gl.uniform1f(this.uniform(program, 'uTime'), time); gl.uniform1f(this.uniform(program, 'uDust'), dust);
   }
@@ -368,6 +371,8 @@ export class FieldRenderer {
     for (let i = 0; i < 3; i++) this.color[i] += (this.goalColor[i]! - this.color[i]!) * Math.min(1, delta * 3);
     this.camera.update(this.form, time, delta, this.contact.down);
     this.wheelEnergy *= Math.exp(-delta * 5.5);
+    this.formFlash *= Math.exp(-delta * 3.2);
+    this.displayEnergy = Math.min(1, this.wheelEnergy + this.formFlash * .45);
     this.contactStrength += ((this.contact.active ? (this.contact.down ? 1 : .35) : 0) - this.contactStrength) * (1 - Math.exp(-delta * 14));
     const cursorLag = 1 - Math.exp(-delta * 16);
     this.cursor.x += (this.cursorTarget.x - this.cursor.x) * cursorLag;
@@ -389,7 +394,7 @@ export class FieldRenderer {
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.bloomB.texture); gl.uniform1i(this.uniform(this.composite, 'uBloom'), 1);
     gl.uniform1f(this.uniform(this.composite, 'uAspect'), this.aspect); gl.uniform3f(this.uniform(this.composite, 'uColor'), this.color[0]!, this.color[1]!, this.color[2]!);
     gl.uniform1f(this.uniform(this.composite, 'uTime'), time);
-    gl.uniform1f(this.uniform(this.composite, 'uGlow'), Math.min(1, this.wheelEnergy * .8 + this.contactStrength * .45));
+    gl.uniform1f(this.uniform(this.composite, 'uGlow'), Math.min(1, this.wheelEnergy * .8 + this.contactStrength * .45 + this.formFlash * .55));
     gl.uniform3f(this.uniform(this.composite, 'uCursor'), this.cursor.x, this.cursor.y, this.cursor.strength);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
