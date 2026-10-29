@@ -18,8 +18,10 @@ export class Simulation {
   private wheel = new WheelMotion();
   get torsion() { return this.wheel.amount; }
   private pulses: { x: number; y: number; z: number; age: number; force: number }[] = [];
+  private rowTwist = new Float32Array(ROWS);
 
   constructor(settings?: Partial<FieldSettings>) {
+    for (let row = 0; row < ROWS; row++) this.rowTwist[row] = .25 + .75 * Math.sin(row / ROWS * Math.PI * 2);
     this.configure(settings ?? {});
     this.reset();
   }
@@ -56,7 +58,7 @@ export class Simulation {
     const strength = this.wheel.kick(kick.delta) * 2.8;
     for (let i = 0; i < COUNT; i++) {
       const at = i * 3, x = this.positions[at]!, y = this.positions[at + 1]!, z = this.positions[at + 2]!;
-      const twist = .25 + .75 * Math.sin(Math.floor(i / COLUMNS) / ROWS * Math.PI * 2);
+      const twist = this.rowTwist[Math.floor(i / COLUMNS)]!;
       this.velocities[at] += (kick.y * z - kick.z * y) * strength * twist;
       this.velocities[at + 1] += (kick.z * x - kick.x * z) * strength * twist;
       this.velocities[at + 2] += (kick.x * y - kick.y * x) * strength * twist;
@@ -64,10 +66,11 @@ export class Simulation {
   }
 
   private updateLengths() {
-    const p = this.anchors;
-    for (let e = 0; e < this.lengths.length; e++) {
-      const a = this.edges[e * 2]! * 3, b = this.edges[e * 2 + 1]! * 3;
-      this.lengths[e] = Math.hypot(p[a]! - p[b]!, p[a + 1]! - p[b + 1]!, p[a + 2]! - p[b + 2]!);
+    const p = this.anchors, edges = this.edges, lengths = this.lengths;
+    for (let e = 0; e < lengths.length; e++) {
+      const a = edges[e * 2]! * 3, b = edges[e * 2 + 1]! * 3;
+      const dx = p[a]! - p[b]!, dy = p[a + 1]! - p[b + 1]!, dz = p[a + 2]! - p[b + 2]!;
+      lengths[e] = Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
   }
 
@@ -86,37 +89,55 @@ export class Simulation {
     const t = this.time * .34;
     const restore = 9 + tension * 14;
     const damping = Math.exp(-(1.5 + tension * 1.1) * dt);
+    const pointer = this.pointer, form = this.settings.form, surface = isSurface(form);
+    const grabbed = pointer.index ?? -1;
+    const grabbing = pointer.down && grabbed >= 0 && grabbed < COUNT;
+    const grabAnchor = grabbed * 3, grabRow = Math.floor(grabbed / COLUMNS), grabColumn = grabbed % COLUMNS;
+    const pullX = grabbing ? pointer.x - this.anchors[grabAnchor]! : 0;
+    const pullY = grabbing ? pointer.y - this.anchors[grabAnchor + 1]! : 0;
+    const pullZ = grabbing ? pointer.z - this.anchors[grabAnchor + 2]! : 0;
+    const pulses = this.pulses, pulseRadius = pulses.map(pulse => pulse.age * 2.9);
+    const pulseAmplitude = pulses.map(pulse => Math.exp(-pulse.age * 2.2) * pulse.force * 33);
     for (let i = 0; i < COUNT; i++) {
       const a = i * 3, x = p[a]!, y = p[a + 1]!, z = p[a + 2]!;
       let fx = (this.anchors[a]! - x) * restore + (Math.sin(y * 2.3 + t) + Math.cos(z * 1.7 - t * .7)) * turbulence * .65;
       let fy = (this.anchors[a + 1]! - y) * restore + (Math.sin(z * 2.1 + t * .8) - Math.cos(x * 1.8 + t)) * turbulence * .65;
       let fz = (this.anchors[a + 2]! - z) * restore + (Math.sin(x * 1.9 - t) + Math.cos(y * 2 + t * .5)) * turbulence * .65;
-      const grabbed = this.pointer.index ?? -1;
-      if (this.pointer.down && grabbed >= 0 && grabbed < COUNT) {
-        let dr = Math.abs(Math.floor(i / COLUMNS) - Math.floor(grabbed / COLUMNS));
-        let dc = Math.abs(i % COLUMNS - grabbed % COLUMNS);
-        if (this.settings.form !== 'wave') dr = Math.min(dr, ROWS - dr);
-        if (this.settings.form === 'orbit') dc = Math.min(dc, COLUMNS - dc);
-        const anchor = grabbed * 3;
-        const distance = isSurface(this.settings.form)
-          ? ((this.anchors[a]! - this.anchors[anchor]!) ** 2 + (this.anchors[a + 1]! - this.anchors[anchor + 1]!) ** 2 + (this.anchors[a + 2]! - this.anchors[anchor + 2]!) ** 2) / .14
-          : dr * dr / 55 + dc * dc / 13;
-        const weight = Math.exp(-distance) * 180;
-        fx += (this.anchors[a]! + this.pointer.x - this.anchors[anchor]! - x) * weight;
-        fy += (this.anchors[a + 1]! + this.pointer.y - this.anchors[anchor + 1]! - y) * weight;
-        fz += (this.anchors[a + 2]! + this.pointer.z - this.anchors[anchor + 2]! - z) * weight;
-      } else if (this.pointer.active) {
-        const dx = x - this.pointer.x, dy = y - this.pointer.y, dz = z - this.pointer.z;
+      if (grabbing) {
+        let distance: number;
+        if (surface) {
+          const ex = this.anchors[a]! - this.anchors[grabAnchor]!, ey = this.anchors[a + 1]! - this.anchors[grabAnchor + 1]!, ez = this.anchors[a + 2]! - this.anchors[grabAnchor + 2]!;
+          distance = (ex * ex + ey * ey + ez * ez) / .14;
+        } else {
+          let dr = Math.abs(Math.floor(i / COLUMNS) - grabRow);
+          let dc = Math.abs(i % COLUMNS - grabColumn);
+          if (form !== 'wave') dr = Math.min(dr, ROWS - dr);
+          if (form === 'orbit') dc = Math.min(dc, COLUMNS - dc);
+          distance = dr * dr / 55 + dc * dc / 13;
+        }
+        if (distance < 9) {
+          const weight = Math.exp(-distance) * 180;
+          fx += (this.anchors[a]! + pullX - x) * weight;
+          fy += (this.anchors[a + 1]! + pullY - y) * weight;
+          fz += (this.anchors[a + 2]! + pullZ - z) * weight;
+        }
+      } else if (pointer.active) {
+        const dx = x - pointer.x, dy = y - pointer.y, dz = z - pointer.z;
         const d2 = dx * dx + dy * dy + dz * dz;
-        const influence = Math.exp(-d2 * 2.2) * (this.pointer.down ? -25 : 7);
-        fx += dx * influence; fy += dy * influence; fz += dz * influence;
+        if (d2 < 3) {
+          const influence = Math.exp(-d2 * 2.2) * (pointer.down ? -25 : 7);
+          fx += dx * influence; fy += dy * influence; fz += dz * influence;
+        }
       }
-      for (const pulse of this.pulses) {
+      for (let k = 0; k < pulses.length; k++) {
+        const pulse = pulses[k]!;
         const dx = x - pulse.x, dy = y - pulse.y, dz = z - pulse.z;
-        const distance = Math.hypot(dx, dy, dz) + .001;
-        const shell = distance - pulse.age * 2.9;
-        const influence = Math.exp(-shell * shell * 20 - pulse.age * 2.2) * pulse.force * 33 / distance;
-        fx += dx * influence; fy += dy * influence; fz += dz * influence;
+        const distance = Math.sqrt(dx * dx + dy * dy + dz * dz) + .001;
+        const shell = distance - pulseRadius[k]!;
+        if (shell > -.85 && shell < .85) {
+          const influence = Math.exp(-shell * shell * 20) * pulseAmplitude[k]! / distance;
+          fx += dx * influence; fy += dy * influence; fz += dz * influence;
+        }
       }
       velocity[a] = (velocity[a]! + fx * dt) * damping;
       velocity[a + 1] = (velocity[a + 1]! + fy * dt) * damping;
@@ -138,9 +159,11 @@ export class Simulation {
     }
     for (let i = 0; i < p.length; i++) {
       if (!Number.isFinite(p[i]!) || Math.abs(p[i]!) > 10) { p[i] = this.anchors[i]!; velocity[i] = 0; }
-      else velocity[i] = (p[i]! - this.previous[i]!) / dt;
+      else velocity[i] = (p[i]! - this.previous[i]!) * HZ;
     }
-    for (const pulse of this.pulses) pulse.age += dt;
-    this.pulses = this.pulses.filter(pulse => pulse.age < 2);
+    if (this.pulses.length) {
+      for (const pulse of this.pulses) pulse.age += dt;
+      this.pulses = this.pulses.filter(pulse => pulse.age < 2);
+    }
   }
 }
