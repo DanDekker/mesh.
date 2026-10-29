@@ -2,7 +2,9 @@
 
 <img src="assets/mesh-banner.svg" alt="mesh. — an interactive field of light, lines, and motion" width="100%">
 
-<p><a href="#run-locally">Run locally</a> · <a href="#interact">Controls</a> · <a href="#how-it-works">How it works</a></p>
+<p><a href="https://dandekker.github.io/mesh./">Explore live</a> · <a href="#run-locally">Run locally</a> · <a href="#interact">Controls</a> · <a href="#how-it-works">How it works</a></p>
+
+<p><a href="https://github.com/DanDekker/mesh./actions/workflows/ci.yml"><img src="https://github.com/DanDekker/mesh./actions/workflows/ci.yml/badge.svg?branch=main" alt="CI and publish status"></a></p>
 
 </div>
 
@@ -11,6 +13,8 @@
 **mesh. is an interactive WebGL particle sculpture.** A field of 7,680 points bends into six forms—Silk, Orbit, Wave, Knot, Sphere, and Cube—and responds to your pointer, touch, and scroll. Pull the surface, send a ripple through it, or let it move on its own.
 
 Built by [Dan Dekker](https://github.com/DanDekker) with Bun, TypeScript, Web Components, and raw WebGL 2. The public version runs its physics in a browser worker, with no external packages, fonts, CDNs, or runtime services.
+
+**[Try the live sculpture →](https://dandekker.github.io/mesh./)**
 
 ## Run locally
 
@@ -55,3 +59,5 @@ bun start      # build and serve
 ```
 
 The [build audit](scripts/audit.ts) checks public output and tracked files for private material. Generated binaries and private implementations belong outside this checkout.
+
+Every push to `main` runs the checks and publishes the standalone browser build to GitHub Pages. A `v*` tag runs the same checks and creates a [GitHub release](https://github.com/DanDekker/mesh./releases) with a static site ZIP and checksum. The optional private provider is not part of either artifact.

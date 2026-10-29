@@ -5,7 +5,7 @@ import { COUNT, ROWS, COLUMNS, HZ, FRAME_HEADER, FORMS, DEFAULT_SETTINGS, IDLE_P
 import type { PrivateFactory, PrivateField, FieldPulse, FieldFling } from './server/provider.ts';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
-const ASSETS = new Map([['/', 'index.html'], ['/index.html', 'index.html'], ['/style.css', 'style.css'], ['/icon.svg', 'icon.svg'], ['/main.js', 'main.js'], ['/worker.js', 'worker.js']]);
+const ASSETS = new Map([['/', 'index.html'], ['/index.html', 'index.html'], ['/style.css', 'style.css'], ['/icon.svg', 'icon.svg'], ['/social.png', 'social.png'], ['/main.js', 'main.js'], ['/worker.js', 'worker.js']]);
 const HEADERS = {
   'Content-Security-Policy': "default-src 'none'; script-src 'self'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
   'X-Content-Type-Options': 'nosniff',

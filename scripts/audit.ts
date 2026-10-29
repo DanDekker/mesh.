@@ -2,10 +2,11 @@ import { readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const root = resolve(import.meta.dir, '..');
-const expected = new Set(['main.js', 'worker.js', 'style.css', 'index.html', 'icon.svg']);
+const expected = new Set(['main.js', 'worker.js', 'style.css', 'index.html', 'icon.svg', 'social.png']);
 const files = readdirSync(resolve(root, 'dist'));
 for (const name of files) {
   if (!expected.has(name)) throw new Error(`Unexpected public artifact: ${name}`);
+  if (name === 'social.png') continue;
   const text = await Bun.file(resolve(root, 'dist', name)).text();
   if (/bun:ffi|dlopen\(|MESH_PRIVATE_ADAPTER|\/Users\/|OTTO_SOURCE|\.dylib|\.wasm|sourceMappingURL/.test(text)) throw new Error(`Private material in public artifact: ${name}`);
 }

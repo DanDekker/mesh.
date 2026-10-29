@@ -34,6 +34,8 @@ mesh-controls { pointer-events: auto; }
 .form-button:hover { color: #c4e6d0; background: #7ed5a408; }
 .form-button:active { transform: scale(.96); }
 .form-button.active { color: #a6e7bf; background: #7ed5a412; box-shadow: inset 0 0 0 1px #7ed5a415; }
+.interaction-hint { margin: 11px 0 0; color: #9bac9d; text-align: center; font-size: 11px; letter-spacing: .15px; text-shadow: 0 1px 8px #090a0b; }
+.touch-hint { display: none; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 @media (min-width: 1600px) { .masthead { left: 64px; right: 64px; top: 45px; }.gallery-bottom { bottom: 45px; } }
 @media (max-width: 1000px) { .masthead { left: 28px; right: 28px; top: 25px; }.gallery-bottom { bottom: 26px; } }
@@ -45,6 +47,7 @@ mesh-controls { pointer-events: auto; }
   .control-surface { max-width: 340px; }
   .forms { flex-wrap: wrap; justify-content: center; }
   .form-button { flex: 0 0 calc(25% - 3px); padding-left: 10px; padding-right: 10px; }
+  .pointer-hint { display: none; }.touch-hint { display: inline; }
 }
 @media (max-width: 380px) { .control-surface { max-width: 290px; } }
 @media (prefers-reduced-motion: no-preference) {

@@ -14,7 +14,7 @@ export async function buildBrowser() {
     sourcemap: 'none',
   });
   if (!build.success) throw new AggregateError(build.logs, 'Browser build failed');
-  for (const name of ['index.html', 'style.css', 'icon.svg']) await Bun.write(resolve(root, 'dist', name), Bun.file(resolve(root, 'public', name)));
+  for (const name of ['index.html', 'style.css', 'icon.svg', 'social.png']) await Bun.write(resolve(root, 'dist', name), Bun.file(resolve(root, 'public', name)));
   console.log(`Built ${build.outputs.length} browser bundles. No dependencies.`);
 }
 if (import.meta.main) await buildBrowser();

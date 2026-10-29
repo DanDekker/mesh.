@@ -213,7 +213,7 @@ export class ParticleField extends HTMLElement {
 
   private startWorker() {
     if (this.worker || !this.isConnected) return;
-    this.worker = new Worker('/worker.js', { type: 'module', name: 'mesh-field' });
+    this.worker = new Worker(new URL('worker.js', document.baseURI), { type: 'module', name: 'mesh-field' });
     this.worker.addEventListener('message', ({ data }) => {
       if (this.privateActive || data.type !== 'frame') return;
       if (data.positions instanceof Float32Array && data.positions.length === COUNT * 3) {
@@ -231,9 +231,11 @@ export class ParticleField extends HTMLElement {
 
   private async connectPrivate(signal: AbortSignal) {
     try {
-      const response = await fetch('/api/field', { signal: AbortSignal.any([signal, AbortSignal.timeout(1500)]) });
+      const response = await fetch(new URL('api/field', document.baseURI), { signal: AbortSignal.any([signal, AbortSignal.timeout(1500)]) });
       if (!response.ok || !(await response.json()).private || signal.aborted) return;
-      const socket = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/field`);
+      const socketUrl = new URL('field', document.baseURI);
+      socketUrl.protocol = socketUrl.protocol === 'https:' ? 'wss:' : 'ws:';
+      const socket = new WebSocket(socketUrl);
       socket.binaryType = 'arraybuffer'; this.socket = socket;
       this.connectionTimer = setTimeout(() => { if (!this.privateActive) socket.close(); }, 4000);
       socket.addEventListener('open', () => {
