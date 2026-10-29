@@ -50,7 +50,7 @@ void main() {
   vColor=mix(warm,highlight,clamp(pow(facing,2.)*.4+edge*.1+charge*.7,0.,1.))*(light+charge*.8+uEnergy*.3);
   vAlpha=(.3+depth*.7)*(1.-uDust*.91);
   gl_PointSize=(1.25+depth*.7+facing*.5+edge*.35+charge*1.4)*uDpr*perspective;
-  if(uDust>.5) { vColor=uColor*.45;vAlpha*=.3+.7*aUV.y;gl_PointSize=(.6+aUV.x*.7)*uDpr; }
+  if(uDust>.5) { vColor=uColor*.45;vAlpha*=(.3+.7*aUV.y)*(.82+.18*sin(uTime*(.5+aUV.x*.8)+aUV.y*43.));gl_PointSize=(.6+aUV.x*.7)*uDpr; }
 }`;
 const POINT_FRAGMENT = `#version 300 es
 precision highp float;
