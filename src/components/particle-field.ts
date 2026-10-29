@@ -39,6 +39,7 @@ export class ParticleField extends HTMLElement {
   private reticle = { x: 0, y: 0, vx: 0, vy: 0, seeded: false };
   private lastInteract = 0;
   private lastIdlePulse = 0;
+  private lastTap = { time: 0, x: 0, y: 0 };
 
   connectedCallback() {
     this.lastInteract = performance.now();
@@ -96,7 +97,12 @@ export class ParticleField extends HTMLElement {
     const release = (event: PointerEvent) => {
       if (!event.isPrimary || event.pointerId !== this.capturedPointer) return;
       if (event.type === 'pointerup' && this.pressed && !this.settings.paused) {
-        if (this.travel < 5) this.send({ type: 'pulse', x: this.pointer.x, y: this.pointer.y, z: this.pointer.z, force: 1 + this.chargeAt(event.timeStamp) });
+        if (this.travel < 5) {
+          const again = event.timeStamp - this.lastTap.time < 350 && Math.hypot(this.press.x - this.lastTap.x, this.press.y - this.lastTap.y) < 44;
+          this.lastTap = { time: event.timeStamp, x: this.press.x, y: this.press.y };
+          this.send({ type: 'pulse', x: this.pointer.x, y: this.pointer.y, z: this.pointer.z, force: Math.min(2, (1 + this.chargeAt(event.timeStamp)) * (again ? 1.5 : 1)) });
+          if (again) this.renderer?.wheel(.2);
+        }
         else if (this.pointer.index !== undefined) {
           const stale = Math.exp(-Math.max(0, event.timeStamp - this.lastWorld.time) / 120), v = this.pointerVelocity;
           this.send({ type: 'fling', index: this.pointer.index, vx: v.x * stale, vy: v.y * stale, vz: v.z * stale });
