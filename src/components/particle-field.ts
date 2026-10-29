@@ -36,6 +36,7 @@ export class ParticleField extends HTMLElement {
   private pointerVelocity = { x: 0, y: 0, z: 0 };
   private pressTime = 0;
   private cursorInside = false;
+  private reticle = { x: 0, y: 0, vx: 0, vy: 0, seeded: false };
 
   connectedCallback() {
     this.lifetime = new AbortController();
@@ -168,19 +169,23 @@ export class ParticleField extends HTMLElement {
     return this.pressed && this.travel < 5 ? 1 - Math.exp(-Math.max(0, time - this.pressTime) / 900) : 0;
   }
 
-  private drawContact() {
+  private drawContact(delta: number) {
     if (!this.feedback || !this.renderer) return;
     this.feedback.style.opacity = this.pointer.active ? '1' : '0';
+    const ring = this.reticle, dt = Math.min(delta, .05);
+    if (!ring.seeded) { ring.x = this.screen.x; ring.y = this.screen.y; ring.seeded = true; }
+    ring.vx += ((this.screen.x - ring.x) * 420 - ring.vx * 32) * dt; ring.x += ring.vx * dt;
+    ring.vy += ((this.screen.y - ring.y) * 420 - ring.vy * 32) * dt; ring.y += ring.vy * dt;
     const charge = this.chargeAt(performance.now());
     const reticle = this.reticleEl!, contact = this.contactEl!, tether = this.tetherEl!;
-    reticle.setAttribute('cx', String(this.screen.x)); reticle.setAttribute('cy', String(this.screen.y));
+    reticle.setAttribute('cx', String(ring.x)); reticle.setAttribute('cy', String(ring.y));
     reticle.setAttribute('r', this.pointer.down ? String(12 - charge * 4.5) : '6');
     reticle.style.opacity = String(.6 + charge * .35);
     const index = this.pointer.index ?? -1;
     const point = index >= 0 ? this.renderer.point(index) : null;
     contact.setAttribute('cx', String(point?.screenX ?? this.screen.x)); contact.setAttribute('cy', String(point?.screenY ?? this.screen.y));
     contact.setAttribute('r', String(1.8 + charge * 1.7));
-    tether.setAttribute('x1', String(this.screen.x)); tether.setAttribute('y1', String(this.screen.y));
+    tether.setAttribute('x1', String(ring.x)); tether.setAttribute('y1', String(ring.y));
     tether.setAttribute('x2', String(point?.screenX ?? this.screen.x)); tether.setAttribute('y2', String(point?.screenY ?? this.screen.y));
     tether.style.opacity = this.pointer.down && point ? String(Math.min(.5, Math.hypot(point.screenX - this.screen.x, point.screenY - this.screen.y) / 100)) : '0';
   }
@@ -262,7 +267,7 @@ export class ParticleField extends HTMLElement {
     for (let i = 0; i < this.displayed.length; i++) this.displayed[i] += (this.target[i]! - this.displayed[i]!) * blend;
     this.displayedTime += (this.targetTime - this.displayedTime) * blend;
     this.renderer.render(this.displayed, this.displayedTime, delta);
-    this.drawContact();
+    this.drawContact(delta);
     if (!this.settings.paused || now < this.dirtyUntil) this.raf = requestAnimationFrame(time => this.render(time));
   }
 }
