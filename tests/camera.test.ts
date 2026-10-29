@@ -33,6 +33,25 @@ test('the sculpture stays inside the frame on portrait and wide viewports', () =
   }
 });
 
+test('sampled fitting still keeps every point inside the frame', () => {
+  const positions = new Float32Array(COUNT * 3);
+  for (const aspect of [390 / 844, 1, 1440 / 900, 2.4]) {
+    for (const form of FORMS) {
+      for (const time of [0, 30, 70]) {
+        writeShape(positions, form, time);
+        const rotation = [.86 + Math.sin(time * .055) * .17, .12 + time * .045, -.31 + Math.sin(time * .04) * .13];
+        const framing = fit(positions, rotation, aspect, 3), view = { ...framing, rotation, aspect };
+        let maxX = 0, maxY = 0;
+        for (let i = 0; i < COUNT; i++) {
+          const p = project({ x: positions[i * 3]!, y: positions[i * 3 + 1]!, z: positions[i * 3 + 2]! }, view);
+          maxX = Math.max(maxX, Math.abs(p.x)); maxY = Math.max(maxY, Math.abs(p.y));
+        }
+        expect(maxX).toBeLessThan(.92); expect(maxY).toBeLessThan(.82);
+      }
+    }
+  }
+});
+
 test('dragging preserves the initial cursor offset without a jump or accumulated drift', () => {
   for (const aspect of [.46, 1, 1.6, 2.4]) {
     const viewport = { left: 30, top: 70, width: 900 * aspect, height: 900 };

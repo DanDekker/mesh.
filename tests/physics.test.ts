@@ -199,6 +199,56 @@ describe('standalone simulation', () => {
     }
   });
 
+  test('a fast-moving pointer brushes the surface along its path', () => {
+    const brushed = new Simulation({ turbulence: 0 }), still = new Simulation({ turbulence: 0 });
+    const index = COLUMNS * 28 + 20, at = index * 3;
+    const origin = { x: brushed.positions[at]!, y: brushed.positions[at + 1]!, z: brushed.positions[at + 2]! };
+    brushed.pointer = { ...origin, active: true, down: false, vx: 5, vy: 0, vz: 0 };
+    still.pointer = { ...origin, active: true, down: false };
+    for (let tick = 0; tick < 20; tick++) { brushed.step(); still.step(); }
+    let momentum = 0;
+    for (let i = 0; i < COUNT; i++) momentum += brushed.velocities[i * 3]! - still.velocities[i * 3]!;
+    expect(momentum).toBeGreaterThan(1);
+    expect(brushed.pointer.vx!).toBeLessThan(5);
+  });
+
+  test('flinging throws the grabbed patch and settles back', () => {
+    const simulation = new Simulation({ turbulence: 0 });
+    const index = COLUMNS * 28 + 20, at = index * 3;
+    simulation.fling(index, 6, 0, 0);
+    expect(simulation.velocities[at]!).toBeGreaterThan(3);
+    const far = (index + COUNT / 2) % COUNT;
+    expect(Math.abs(simulation.velocities[far * 3]!)).toBeLessThan(.05);
+    for (let tick = 0; tick < 12; tick++) simulation.step();
+    const thrown = Math.hypot(simulation.positions[at]! - simulation.anchors[at]!, simulation.positions[at + 1]! - simulation.anchors[at + 1]!, simulation.positions[at + 2]! - simulation.anchors[at + 2]!);
+    expect(thrown).toBeGreaterThan(.05);
+    for (let tick = 0; tick < HZ * 2; tick++) simulation.step();
+    const settled = Math.hypot(simulation.positions[at]! - simulation.anchors[at]!, simulation.positions[at + 1]! - simulation.anchors[at + 1]!, simulation.positions[at + 2]! - simulation.anchors[at + 2]!);
+    expect(settled).toBeLessThan(thrown * .5);
+  });
+
+  test('flinging rejects invalid input and negligible speed', () => {
+    const simulation = new Simulation({ turbulence: 0 });
+    simulation.fling(-1, 5, 0, 0);
+    simulation.fling(10, Number.NaN, 0, 0);
+    simulation.fling(10, .1, 0, 0);
+    expect(simulation.velocities.every(value => value === 0)).toBe(true);
+  });
+
+  test('a charged pulse ripples harder than a tap and stays bounded', () => {
+    const displacement = (force: number) => {
+      const simulation = new Simulation({ turbulence: 0 });
+      simulation.pulse(1.3, .1, .1, force);
+      for (let tick = 0; tick < 18; tick++) simulation.step();
+      let total = 0;
+      for (let i = 0; i < COUNT; i++) total += Math.abs(simulation.positions[i * 3]! - simulation.anchors[i * 3]!);
+      expect(simulation.positions.every(value => Number.isFinite(value) && Math.abs(value) < 5)).toBe(true);
+      return total;
+    };
+    expect(displacement(2)).toBeGreaterThan(displacement(.5) * 1.5);
+    expect(displacement(99)).toBeLessThanOrEqual(displacement(2) * 1.01);
+  });
+
   test('strong forces and form changes remain bounded', () => {
     const simulation = new Simulation({ turbulence: 1, tension: 1 });
     for (const form of FORMS) {
