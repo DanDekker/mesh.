@@ -4,8 +4,14 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#090a0b">
-    <meta name="description" content="Mesh. A motion study by Dan Dekker.">
-    <title>Mesh — Dan Dekker</title>
+    <meta name="description" content="mesh. is an interactive WebGL particle sculpture by Dan Dekker. Explore six forms and shape a field of light with touch, drag, and scroll.">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="mesh. — interactive particle sculpture">
+    <meta property="og:description" content="Explore six forms and shape a field of light with touch, drag, and scroll. An interactive WebGL artwork by Dan Dekker.">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="mesh. — interactive particle sculpture">
+    <meta name="twitter:description" content="Six forms. One field of light. Shape this interactive WebGL artwork with touch, drag, and scroll.">
+    <title>mesh. — Interactive WebGL particle sculpture by Dan Dekker</title>
     <link rel="icon" href="/icon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="/style.css">
     <script type="module" src="/main.js"></script>
@@ -13,10 +19,12 @@
   <body>
     <mesh-app>
       <main class="gallery" aria-label="Mesh, an interactive motion study">
+        <h1 class="sr-only">mesh. — interactive WebGL particle sculpture</h1>
+        <p class="sr-only">Explore Silk, Orbit, Wave, Knot, Sphere, and Cube. Move, drag, tap, or scroll to shape the field of light.</p>
         <particle-field aria-label="Interactive particle sculpture. Move to disturb, drag to pull, click to ripple." tabindex="0"></particle-field>
         <header class="masthead">
           <a class="wordmark" href="/" aria-label="Mesh home">mesh<span class="wordmark-dot">.</span></a>
-          <a class="author" href="https://github.com/DanDekker" target="_blank" rel="noopener noreferrer">GitHub <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 15 15 5M5 5h10v10"/></svg></a>
+          <a class="author" href="https://github.com/DanDekker/mesh." target="_blank" rel="noopener noreferrer">GitHub <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 15 15 5M5 5h10v10"/></svg></a>
         </header>
         <div class="sr-only field-message" role="status" aria-live="polite"></div>
         <footer class="gallery-bottom">
