@@ -98,21 +98,29 @@ uniform sampler2D uScene;
 uniform sampler2D uBloom;
 uniform float uAspect;
 uniform vec3 uColor;
+uniform float uTime;
+uniform float uGlow;
+uniform vec3 uCursor;
 in vec2 vUV;
 out vec4 color;
 float grain(vec2 p) { return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453); }
 void main() {
   vec2 q=(vUV-vec2(.5,.54))*vec2(uAspect,1.);
   float halo=exp(-dot(q,q)*3.6);
-  vec3 background=vec3(.027,.031,.030)+uColor*halo*.007;
-  vec3 scene=texture(uScene,vUV).rgb;
+  vec2 cq=(vUV-uCursor.xy)*vec2(uAspect,1.);
+  float candle=exp(-dot(cq,cq)*9.)*uCursor.z;
+  vec3 background=vec3(.027,.031,.030)+uColor*(halo*(.007+.0015*sin(uTime*.4+1.7))+candle*.011);
+  vec2 dir=vUV-.5;
+  float fringe=.0013*length(dir);
+  vec3 scene=vec3(texture(uScene,vUV+dir*fringe).r,texture(uScene,vUV).g,texture(uScene,vUV-dir*fringe).b);
   vec3 bloom=texture(uBloom,vUV).rgb;
-  vec3 lit=scene+bloom*.65;
+  vec3 lit=scene+bloom*(.65+uGlow*.35);
   lit=lit/(vec3(1.)+lit*.38);
   vec3 result=background+lit;
-  float vignette=1.-smoothstep(.35,1.25,length((vUV-.5)*vec2(1.,.85)))*.38;
+  float vignette=1.-smoothstep(.35,1.25,length((vUV-.5)*vec2(1.,.85)))*(.38+.025*sin(uTime*.55));
   result*=vignette;
-  result+=(grain(gl_FragCoord.xy)-.5)/390.;
+  float step24=floor(uTime*24.)*17.31;
+  result+=(grain(gl_FragCoord.xy+vec2(step24,-step24))-.5)/390.;
   color=vec4(result,1.);
 }`;
 
@@ -157,6 +165,8 @@ export class FieldRenderer {
   private wheelEnergy = 0;
   private contact: Pointer = { x: 0, y: 0, z: 0, active: false, down: false };
   private contactStrength = 0;
+  private cursorTarget = { x: .5, y: .5, inside: false };
+  private cursor = { x: .5, y: .5, strength: 0 };
   private color = [...COLORS.alpine];
   private goalColor = [...COLORS.alpine];
   private uniforms = new Map<WebGLProgram, Map<string, WebGLUniformLocation | null>>();
@@ -274,7 +284,7 @@ export class FieldRenderer {
 
   palette(palette: Palette) { this.goalColor = [...COLORS[palette]]; }
 
-  touch(pointer: Pointer) { this.contact = { ...pointer }; }
+  touch(pointer: Pointer, cursorX = .5, cursorY = .5, inside = false) { this.contact = { ...pointer }; this.cursorTarget = { x: cursorX, y: cursorY, inside }; }
 
   wheel(delta: number) { this.wheelEnergy = Math.min(1, this.wheelEnergy + Math.abs(delta) * 2.8); }
 
@@ -359,6 +369,10 @@ export class FieldRenderer {
     this.camera.update(this.form, time, delta, this.contact.down);
     this.wheelEnergy *= Math.exp(-delta * 5.5);
     this.contactStrength += ((this.contact.active ? (this.contact.down ? 1 : .35) : 0) - this.contactStrength) * (1 - Math.exp(-delta * 14));
+    const cursorLag = 1 - Math.exp(-delta * 16);
+    this.cursor.x += (this.cursorTarget.x - this.cursor.x) * cursorLag;
+    this.cursor.y += (this.cursorTarget.y - this.cursor.y) * cursorLag;
+    this.cursor.strength += ((this.cursorTarget.inside ? 1 : 0) - this.cursor.strength) * (1 - Math.exp(-delta * 6));
     this.currentPositions = positions;
     this.geometry(positions, delta);
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.scene.framebuffer); gl.viewport(0, 0, this.scene.width, this.scene.height); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT);
@@ -374,6 +388,9 @@ export class FieldRenderer {
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, this.scene.texture); gl.uniform1i(this.uniform(this.composite, 'uScene'), 0);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.bloomB.texture); gl.uniform1i(this.uniform(this.composite, 'uBloom'), 1);
     gl.uniform1f(this.uniform(this.composite, 'uAspect'), this.aspect); gl.uniform3f(this.uniform(this.composite, 'uColor'), this.color[0]!, this.color[1]!, this.color[2]!);
+    gl.uniform1f(this.uniform(this.composite, 'uTime'), time);
+    gl.uniform1f(this.uniform(this.composite, 'uGlow'), Math.min(1, this.wheelEnergy * .8 + this.contactStrength * .45));
+    gl.uniform3f(this.uniform(this.composite, 'uCursor'), this.cursor.x, this.cursor.y, this.cursor.strength);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
 

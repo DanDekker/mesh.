@@ -35,6 +35,7 @@ export class ParticleField extends HTMLElement {
   private lastWorld = { x: 0, y: 0, z: 0, time: 0 };
   private pointerVelocity = { x: 0, y: 0, z: 0 };
   private pressTime = 0;
+  private cursorInside = false;
 
   connectedCallback() {
     this.lifetime = new AbortController();
@@ -62,6 +63,7 @@ export class ParticleField extends HTMLElement {
     this.resizeObserver = new ResizeObserver(() => this.resize()); this.resizeObserver.observe(this);
     this.addEventListener('pointermove', event => {
       if (!this.renderer || !event.isPrimary) return;
+      this.cursorInside = true;
       const bounds = this.getBoundingClientRect(); this.screen = { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
       if (this.pressed) this.travel = Math.max(this.travel, Math.hypot(event.clientX - this.press.x, event.clientY - this.press.y));
       if (this.grab) {
@@ -75,6 +77,7 @@ export class ParticleField extends HTMLElement {
     }, { signal });
     this.addEventListener('pointerdown', event => {
       if (event.button !== 0 || !this.renderer || !event.isPrimary) return;
+      this.cursorInside = true;
       const grab = this.renderer.grab(event.clientX, event.clientY);
       if (!grab) { this.clearContact(); return; }
       this.grab = grab; this.capturedPointer = event.pointerId;
@@ -99,7 +102,7 @@ export class ParticleField extends HTMLElement {
     };
     this.addEventListener('pointerup', release, { signal }); this.addEventListener('pointercancel', release, { signal });
     this.addEventListener('lostpointercapture', event => { if (event.pointerId === this.capturedPointer) this.clearContact(); }, { signal });
-    this.addEventListener('pointerleave', () => { if (!this.pointer.down) { this.pointer.active = false; this.updateContact(); } }, { signal });
+    this.addEventListener('pointerleave', () => { this.cursorInside = false; if (!this.pointer.down) { this.pointer.active = false; this.updateContact(); } else this.updateContact(); }, { signal });
     this.addEventListener('wheel', event => {
       event.preventDefault();
       if (!this.renderer || this.settings.paused || this.pointer.down) return;
@@ -156,7 +159,8 @@ export class ParticleField extends HTMLElement {
   }
 
   private updateContact() {
-    this.renderer?.touch(this.pointer); this.style.cursor = this.pointer.down ? 'grabbing' : this.pointer.active ? 'grab' : '';
+    this.renderer?.touch(this.pointer, this.clientWidth ? this.screen.x / this.clientWidth : .5, this.clientHeight ? 1 - this.screen.y / this.clientHeight : .5, this.cursorInside);
+    this.style.cursor = this.pointer.down ? 'grabbing' : this.pointer.active ? 'grab' : '';
     this.send({ type: 'pointer', pointer: this.pointer }); this.requestFrame();
   }
 
