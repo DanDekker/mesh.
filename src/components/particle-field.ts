@@ -30,6 +30,7 @@ export class ParticleField extends HTMLElement {
   private pressed = false;
   private lastWorld = { x: 0, y: 0, z: 0, time: 0 };
   private pointerVelocity = { x: 0, y: 0, z: 0 };
+  private pressTime = 0;
 
   connectedCallback() {
     this.lifetime = new AbortController();
@@ -74,7 +75,7 @@ export class ParticleField extends HTMLElement {
       this.grab = grab; this.capturedPointer = event.pointerId;
       this.setPointerCapture(event.pointerId);
       const bounds = this.getBoundingClientRect(); this.screen = { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
-      this.travel = 0; this.pressed = true; this.press = { x: event.clientX, y: event.clientY };
+      this.travel = 0; this.pressed = true; this.pressTime = event.timeStamp; this.press = { x: event.clientX, y: event.clientY };
       this.pointerVelocity = { x: 0, y: 0, z: 0 }; this.lastWorld.time = 0;
       this.pointer = grab.move(event.clientX, event.clientY);
       this.trackVelocity(event.timeStamp);
@@ -83,7 +84,7 @@ export class ParticleField extends HTMLElement {
     const release = (event: PointerEvent) => {
       if (!event.isPrimary || event.pointerId !== this.capturedPointer) return;
       if (event.type === 'pointerup' && this.pressed && !this.settings.paused) {
-        if (this.travel < 5) this.send({ type: 'pulse', x: this.pointer.x, y: this.pointer.y, z: this.pointer.z });
+        if (this.travel < 5) this.send({ type: 'pulse', x: this.pointer.x, y: this.pointer.y, z: this.pointer.z, force: 1 + this.chargeAt(event.timeStamp) });
         else if (this.pointer.index !== undefined) {
           const stale = Math.exp(-Math.max(0, event.timeStamp - this.lastWorld.time) / 120), v = this.pointerVelocity;
           this.send({ type: 'fling', index: this.pointer.index, vx: v.x * stale, vy: v.y * stale, vz: v.z * stale });
@@ -154,15 +155,23 @@ export class ParticleField extends HTMLElement {
     this.send({ type: 'pointer', pointer: this.pointer }); this.requestFrame();
   }
 
+  private chargeAt(time: number) {
+    return this.pressed && this.travel < 5 ? 1 - Math.exp(-Math.max(0, time - this.pressTime) / 900) : 0;
+  }
+
   private drawContact() {
     if (!this.feedback || !this.renderer) return;
     this.feedback.style.opacity = this.pointer.active ? '1' : '0';
+    const charge = this.chargeAt(performance.now());
     const reticle = this.feedback.querySelector('.reticle')!;
-    reticle.setAttribute('cx', String(this.screen.x)); reticle.setAttribute('cy', String(this.screen.y)); reticle.setAttribute('r', this.pointer.down ? '12' : '6');
+    reticle.setAttribute('cx', String(this.screen.x)); reticle.setAttribute('cy', String(this.screen.y));
+    reticle.setAttribute('r', this.pointer.down ? String(12 - charge * 4.5) : '6');
+    (reticle as SVGCircleElement).style.opacity = String(.6 + charge * .35);
     const index = this.pointer.index ?? -1;
     const point = index >= 0 ? this.renderer.point(index) : null;
     const contact = this.feedback.querySelector('.contact')!, tether = this.feedback.querySelector<SVGLineElement>('.tether')!;
     contact.setAttribute('cx', String(point?.screenX ?? this.screen.x)); contact.setAttribute('cy', String(point?.screenY ?? this.screen.y));
+    contact.setAttribute('r', String(1.8 + charge * 1.7));
     tether.setAttribute('x1', String(this.screen.x)); tether.setAttribute('y1', String(this.screen.y));
     tether.setAttribute('x2', String(point?.screenX ?? this.screen.x)); tether.setAttribute('y2', String(point?.screenY ?? this.screen.y));
     tether.style.opacity = this.pointer.down && point ? String(Math.min(.5, Math.hypot(point.screenX - this.screen.x, point.screenY - this.screen.y) / 100)) : '0';
