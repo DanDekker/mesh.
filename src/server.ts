@@ -2,7 +2,7 @@ import { realpathSync } from 'node:fs';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { COUNT, ROWS, COLUMNS, HZ, FRAME_HEADER, FORMS, DEFAULT_SETTINGS, IDLE_POINTER, createEdges, writeShape, normalizeSettings, type FieldSettings, type Pointer, type WheelKick } from './shared/field.ts';
-import type { PrivateFactory, PrivateField, FieldPulse } from './server/provider.ts';
+import type { PrivateFactory, PrivateField, FieldPulse, FieldFling } from './server/provider.ts';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const ASSETS = new Map([['/', 'index.html'], ['/index.html', 'index.html'], ['/style.css', 'style.css'], ['/icon.svg', 'icon.svg'], ['/main.js', 'main.js'], ['/worker.js', 'worker.js']]);
@@ -25,7 +25,7 @@ export async function loadPrivateFactory(): Promise<PrivateFactory | null> {
   return module.createField as PrivateFactory;
 }
 
-type Session = { field: PrivateField; settings: FieldSettings; pointer: Pointer; pulses: FieldPulse[]; kicks: WheelKick[]; reset: boolean; visible: boolean; dirty: boolean; previous: number; lastSent: number; frame: Float32Array };
+type Session = { field: PrivateField; settings: FieldSettings; pointer: Pointer; pulses: FieldPulse[]; kicks: WheelKick[]; flings: FieldFling[]; reset: boolean; visible: boolean; dirty: boolean; previous: number; lastSent: number; frame: Float32Array };
 
 export function createServer(options: { port?: number; hostname?: string; privateFactory?: PrivateFactory | null } = {}) {
   const factory = options.privateFactory ?? null;
@@ -45,7 +45,7 @@ export function createServer(options: { port?: number; hostname?: string; privat
         try {
           const positions = new Float32Array(COUNT * 3); writeShape(positions, 'silk');
           field = factory({ count: COUNT, rows: ROWS, columns: COLUMNS, hz: HZ, positions, edges: createEdges() });
-          if (server.upgrade(request, { data: { field, settings: { ...DEFAULT_SETTINGS }, pointer: { ...IDLE_POINTER }, pulses: [], kicks: [], reset: false, visible: true, dirty: true, previous: performance.now(), lastSent: 0, frame: new Float32Array(COUNT * 3 + FRAME_HEADER) } })) return;
+          if (server.upgrade(request, { data: { field, settings: { ...DEFAULT_SETTINGS }, pointer: { ...IDLE_POINTER }, pulses: [], kicks: [], flings: [], reset: false, visible: true, dirty: true, previous: performance.now(), lastSent: 0, frame: new Float32Array(COUNT * 3 + FRAME_HEADER) } })) return;
           field.dispose();
         } catch (error) { field?.dispose(); console.error('Private field could not start:', error); return respond('Field unavailable', 503); }
         return respond('Upgrade required', 426);
@@ -68,14 +68,18 @@ export function createServer(options: { port?: number; hostname?: string; privat
           const data = JSON.parse(message), session = socket.data;
           if (data.type === 'settings' && data.settings && typeof data.settings === 'object') {
             const next = normalizeSettings(data.settings, session.settings);
-            if (next.form !== session.settings.form) { session.pointer = { ...IDLE_POINTER }; session.pulses.length = 0; session.kicks.length = 0; }
+            if (next.form !== session.settings.form) { session.pointer = { ...IDLE_POINTER }; session.pulses.length = 0; session.kicks.length = 0; session.flings.length = 0; }
             session.settings = next; session.dirty = true;
           }
           if (data.type === 'pointer' && data.pointer) {
             const p = data.pointer;
-            if ([p.x, p.y, p.z].every((value: unknown) => typeof value === 'number' && Number.isFinite(value) && Math.abs(value) < 30)) session.pointer = { x: p.x, y: p.y, z: p.z, down: p.down === true, active: p.active === true, index: Number.isInteger(p.index) && p.index >= 0 && p.index < COUNT ? p.index : -1 };
+            if ([p.x, p.y, p.z].every((value: unknown) => typeof value === 'number' && Number.isFinite(value) && Math.abs(value) < 30)) {
+              const velocity = (value: unknown) => typeof value === 'number' && Number.isFinite(value) ? Math.max(-12, Math.min(12, value)) : 0;
+              session.pointer = { x: p.x, y: p.y, z: p.z, down: p.down === true, active: p.active === true, index: Number.isInteger(p.index) && p.index >= 0 && p.index < COUNT ? p.index : -1, vx: velocity(p.vx), vy: velocity(p.vy), vz: velocity(p.vz) };
+            }
           }
-          if (data.type === 'pulse' && session.pulses.length < 6 && [data.x, data.y, data.z].every((value: unknown) => typeof value === 'number' && Number.isFinite(value) && Math.abs(value) < 30)) session.pulses.push({ x: data.x, y: data.y, z: data.z });
+          if (data.type === 'pulse' && session.pulses.length < 6 && [data.x, data.y, data.z].every((value: unknown) => typeof value === 'number' && Number.isFinite(value) && Math.abs(value) < 30)) session.pulses.push({ x: data.x, y: data.y, z: data.z, force: typeof data.force === 'number' && Number.isFinite(data.force) ? Math.max(0, Math.min(2, data.force)) : 1 });
+          if (data.type === 'fling' && session.flings.length < 4 && Number.isInteger(data.index) && data.index >= 0 && data.index < COUNT && [data.vx, data.vy, data.vz].every((value: unknown) => typeof value === 'number' && Number.isFinite(value) && Math.abs(value) < 30)) session.flings.push({ index: data.index, vx: data.vx, vy: data.vy, vz: data.vz });
           if (data.type === 'wheel' && data.kick && session.kicks.length < 8) {
             const kick = data.kick;
             if ([kick.delta, kick.x, kick.y, kick.z].every((value: unknown) => typeof value === 'number' && Number.isFinite(value) && Math.abs(value) <= 1)) session.kicks.push({ delta: kick.delta, x: kick.x, y: kick.y, z: kick.z });
@@ -94,8 +98,8 @@ export function createServer(options: { port?: number; hostname?: string; privat
       const session = socket.data, elapsed = Math.max(0, Math.min(80, now - session.previous)); session.previous = now;
       if (!session.visible || (session.settings.paused && !session.dirty)) continue;
       try {
-        const frame = session.field.advance({ elapsedNanoseconds: Math.round(elapsed * 1e6), settings: session.settings, pointer: session.pointer, pulses: session.pulses, kicks: session.kicks, reset: session.reset });
-        session.pulses.length = 0; session.kicks.length = 0; session.reset = false;
+        const frame = session.field.advance({ elapsedNanoseconds: Math.round(elapsed * 1e6), settings: session.settings, pointer: session.pointer, pulses: session.pulses, kicks: session.kicks, flings: session.flings, reset: session.reset });
+        session.pulses.length = 0; session.kicks.length = 0; session.flings.length = 0; session.reset = false;
         if (frame.positions.length !== COUNT * 3 || !Number.isFinite(frame.time) || !frame.positions.every(value => Number.isFinite(value) && Math.abs(value) < 10)) throw new Error('Invalid field frame');
         if (now - session.lastSent < 1000 / 60 || socket.getBufferedAmount() > session.frame.byteLength * 3) continue;
         session.frame[0] = frame.time; session.frame[1] = COUNT; session.frame[2] = FORMS.indexOf(session.settings.form); session.frame.set(frame.positions, FRAME_HEADER);

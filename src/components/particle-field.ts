@@ -82,7 +82,13 @@ export class ParticleField extends HTMLElement {
     }, { signal });
     const release = (event: PointerEvent) => {
       if (!event.isPrimary || event.pointerId !== this.capturedPointer) return;
-      if (event.type === 'pointerup' && this.pressed && this.travel < 5 && !this.settings.paused) this.send({ type: 'pulse', x: this.pointer.x, y: this.pointer.y, z: this.pointer.z });
+      if (event.type === 'pointerup' && this.pressed && !this.settings.paused) {
+        if (this.travel < 5) this.send({ type: 'pulse', x: this.pointer.x, y: this.pointer.y, z: this.pointer.z });
+        else if (this.pointer.index !== undefined) {
+          const stale = Math.exp(-Math.max(0, event.timeStamp - this.lastWorld.time) / 120), v = this.pointerVelocity;
+          this.send({ type: 'fling', index: this.pointer.index, vx: v.x * stale, vy: v.y * stale, vz: v.z * stale });
+        }
+      }
       this.clearContact();
     };
     this.addEventListener('pointerup', release, { signal }); this.addEventListener('pointercancel', release, { signal });

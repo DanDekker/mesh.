@@ -53,6 +53,32 @@ export class Simulation {
     this.pulses.push({ x, y, z, age: 0, force: Math.max(0, Math.min(2, force)) });
   }
 
+  private grabDistance(i: number, grabbed: number) {
+    const form = this.settings.form, a = i * 3, anchor = grabbed * 3;
+    if (isSurface(form)) {
+      const ex = this.anchors[a]! - this.anchors[anchor]!, ey = this.anchors[a + 1]! - this.anchors[anchor + 1]!, ez = this.anchors[a + 2]! - this.anchors[anchor + 2]!;
+      return (ex * ex + ey * ey + ez * ez) / .14;
+    }
+    let dr = Math.abs(Math.floor(i / COLUMNS) - Math.floor(grabbed / COLUMNS));
+    let dc = Math.abs(i % COLUMNS - grabbed % COLUMNS);
+    if (form !== 'wave') dr = Math.min(dr, ROWS - dr);
+    if (form === 'orbit') dc = Math.min(dc, COLUMNS - dc);
+    return dr * dr / 55 + dc * dc / 13;
+  }
+
+  fling(index: number, vx: number, vy: number, vz: number) {
+    if (!Number.isInteger(index) || index < 0 || index >= COUNT || ![vx, vy, vz].every(Number.isFinite)) return;
+    const speed = Math.sqrt(vx * vx + vy * vy + vz * vz);
+    if (speed < .4) return;
+    const scale = Math.min(1, 9 / speed) * .9;
+    for (let i = 0; i < COUNT; i++) {
+      const distance = this.grabDistance(i, index);
+      if (distance >= 9) continue;
+      const weight = Math.exp(-distance) * scale, a = i * 3;
+      this.velocities[a] += vx * weight; this.velocities[a + 1] += vy * weight; this.velocities[a + 2] += vz * weight;
+    }
+  }
+
   swirl(kick: WheelKick) {
     if (![kick.delta, kick.x, kick.y, kick.z].every(Number.isFinite)) return;
     const strength = this.wheel.kick(kick.delta) * 2.8;
@@ -89,10 +115,10 @@ export class Simulation {
     const t = this.time * .34;
     const restore = 9 + tension * 14;
     const damping = Math.exp(-(1.5 + tension * 1.1) * dt);
-    const pointer = this.pointer, form = this.settings.form, surface = isSurface(form);
+    const pointer = this.pointer;
     const grabbed = pointer.index ?? -1;
     const grabbing = pointer.down && grabbed >= 0 && grabbed < COUNT;
-    const grabAnchor = grabbed * 3, grabRow = Math.floor(grabbed / COLUMNS), grabColumn = grabbed % COLUMNS;
+    const grabAnchor = grabbed * 3;
     const pullX = grabbing ? pointer.x - this.anchors[grabAnchor]! : 0;
     const pullY = grabbing ? pointer.y - this.anchors[grabAnchor + 1]! : 0;
     const pullZ = grabbing ? pointer.z - this.anchors[grabAnchor + 2]! : 0;
@@ -105,17 +131,7 @@ export class Simulation {
       let fy = (this.anchors[a + 1]! - y) * restore + (Math.sin(z * 2.1 + t * .8) - Math.cos(x * 1.8 + t)) * turbulence * .65;
       let fz = (this.anchors[a + 2]! - z) * restore + (Math.sin(x * 1.9 - t) + Math.cos(y * 2 + t * .5)) * turbulence * .65;
       if (grabbing) {
-        let distance: number;
-        if (surface) {
-          const ex = this.anchors[a]! - this.anchors[grabAnchor]!, ey = this.anchors[a + 1]! - this.anchors[grabAnchor + 1]!, ez = this.anchors[a + 2]! - this.anchors[grabAnchor + 2]!;
-          distance = (ex * ex + ey * ey + ez * ez) / .14;
-        } else {
-          let dr = Math.abs(Math.floor(i / COLUMNS) - grabRow);
-          let dc = Math.abs(i % COLUMNS - grabColumn);
-          if (form !== 'wave') dr = Math.min(dr, ROWS - dr);
-          if (form === 'orbit') dc = Math.min(dc, COLUMNS - dc);
-          distance = dr * dr / 55 + dc * dc / 13;
-        }
+        const distance = this.grabDistance(i, grabbed);
         if (distance < 9) {
           const weight = Math.exp(-distance) * 180;
           fx += (this.anchors[a]! + pullX - x) * weight;

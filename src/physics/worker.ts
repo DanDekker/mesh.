@@ -12,7 +12,8 @@ function send() {
 worker.onmessage = ({ data }: MessageEvent) => {
   if (data.type === 'settings') { simulation.configure(data.settings as Partial<FieldSettings>); send(); }
   if (data.type === 'pointer') simulation.pointer = data.pointer as Pointer;
-  if (data.type === 'pulse') simulation.pulse(data.x, data.y, data.z);
+  if (data.type === 'pulse') simulation.pulse(data.x, data.y, data.z, data.force);
+  if (data.type === 'fling') simulation.fling(data.index, data.vx, data.vy, data.vz);
   if (data.type === 'wheel' && !simulation.settings.paused) simulation.swirl(data.kick);
   if (data.type === 'reset') { simulation.reset(); send(); }
   if (data.type === 'visibility') { visible = data.visible; previous = performance.now(); remainder = 0; }
