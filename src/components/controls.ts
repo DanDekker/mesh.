@@ -8,6 +8,8 @@ export class MeshControls extends HTMLElement {
     this.addEventListener('click', event => {
       const button = (event.target as Element).closest<HTMLButtonElement>('[data-form]');
       if (button) this.dispatchEvent(new CustomEvent('mesh-settings', { detail: { form: button.dataset.form as Form }, bubbles: true }));
+      const action = (event.target as Element).closest<HTMLButtonElement>('[data-action]');
+      if (action) this.dispatchEvent(new CustomEvent('mesh-action', { detail: action.dataset.action, bubbles: true }));
     }, { signal: this.lifetime.signal });
   }
 
@@ -19,5 +21,7 @@ export class MeshControls extends HTMLElement {
       button.classList.toggle('active', active);
       button.setAttribute('aria-pressed', String(active));
     }
+    const pause = this.querySelector<HTMLButtonElement>('[data-action="pause"]');
+    if (pause) pause.textContent = settings.paused ? 'Resume' : 'Pause';
   }
 }

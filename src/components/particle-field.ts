@@ -42,7 +42,11 @@ export class ParticleField extends HTMLElement {
   private lastTap = { time: 0, x: 0, y: 0 };
   private frameEma = 1 / 60;
   private quality = 1;
-  private qualityFrames = 0;
+  private slowFrames = 0;
+  private recoveryFrames = 0;
+  private fpsStart = 0;
+  private fpsFrames = 0;
+  private lastHoverPick = -Infinity;
 
   connectedCallback() {
     this.lastInteract = performance.now();
@@ -63,9 +67,9 @@ export class ParticleField extends HTMLElement {
     writeShape(this.target, this.settings.form); this.displayed.set(this.target);
     try { this.renderer = new FieldRenderer(this.canvas); }
     catch (error) { this.failure(error); return; }
-    this.canvas.addEventListener('webglcontextlost', event => { event.preventDefault(); this.clearContact(); cancelAnimationFrame(this.raf); this.raf = 0; }, { signal });
+    this.canvas.addEventListener('webglcontextlost', event => { event.preventDefault(); this.clearContact(); cancelAnimationFrame(this.raf); this.raf = 0; this.dispatchEvent(new CustomEvent('mesh-error', { detail: 'Graphics paused while the browser restores WebGL.', bubbles: true })); }, { signal });
     this.canvas.addEventListener('webglcontextrestored', () => {
-      try { this.renderer?.dispose(); this.renderer = new FieldRenderer(this.canvas!); this.resize(); this.renderer.palette(this.settings.palette); this.renderer.topology(this.settings.form); this.requestFrame(); }
+      try { this.renderer?.dispose(); this.renderer = new FieldRenderer(this.canvas!); this.resize(); this.renderer.palette(this.settings.palette); this.renderer.topology(this.settings.form); this.dispatchEvent(new CustomEvent('mesh-error', { detail: '', bubbles: true })); this.requestFrame(); }
       catch (error) { this.failure(error); }
     }, { signal });
     this.resizeObserver = new ResizeObserver(() => this.resize()); this.resizeObserver.observe(this);
@@ -77,6 +81,8 @@ export class ParticleField extends HTMLElement {
       if (this.grab) {
         this.pointer = this.grab.move(event.clientX, event.clientY);
       } else {
+        if (event.timeStamp - this.lastHoverPick < 32) { this.requestFrame(); return; }
+        this.lastHoverPick = event.timeStamp;
         const hit = this.renderer.pick(event.clientX, event.clientY);
         this.pointer = hit ? { x: hit.x, y: hit.y, z: hit.z, active: true, down: false, index: hit.index } : { ...IDLE_POINTER };
       }
@@ -117,7 +123,7 @@ export class ParticleField extends HTMLElement {
     };
     this.addEventListener('pointerup', release, { signal }); this.addEventListener('pointercancel', release, { signal });
     this.addEventListener('lostpointercapture', event => { if (event.pointerId === this.capturedPointer) this.clearContact(); }, { signal });
-    this.addEventListener('pointerleave', () => { this.cursorInside = false; if (!this.pointer.down) { this.pointer.active = false; this.updateContact(); } else this.updateContact(); }, { signal });
+    this.addEventListener('pointerleave', () => { this.cursorInside = false; this.lastHoverPick = -Infinity; if (!this.pointer.down) { this.pointer.active = false; this.updateContact(); } else this.updateContact(); }, { signal });
     this.addEventListener('wheel', event => {
       event.preventDefault();
       if (!this.renderer || this.settings.paused || this.pointer.down) return;
@@ -130,7 +136,7 @@ export class ParticleField extends HTMLElement {
     document.addEventListener('visibilitychange', () => {
       this.send({ type: 'visibility', visible: !document.hidden });
       if (document.hidden) { this.clearContact(); cancelAnimationFrame(this.raf); this.raf = 0; }
-      else { this.previous = 0; this.requestFrame(); }
+      else { this.previous = 0; this.fpsStart = 0; this.fpsFrames = 0; this.requestFrame(); }
     }, { signal });
     this.startWorker(); this.connectPrivate(signal); this.resize();
   }
@@ -206,9 +212,9 @@ export class ParticleField extends HTMLElement {
     tether.style.opacity = this.pointer.down && point ? String(Math.min(.5, Math.hypot(point.screenX - this.screen.x, point.screenY - this.screen.y) / 100)) : '0';
   }
 
-  private failure(error: unknown) {
+  private failure(error: unknown, message = 'This view needs WebGL 2. Try enabling hardware acceleration or using a recent browser.') {
     console.error('Mesh renderer:', error);
-    this.dispatchEvent(new CustomEvent('mesh-error', { detail: 'This view needs WebGL 2. Please enable hardware acceleration.', bubbles: true }));
+    this.dispatchEvent(new CustomEvent('mesh-error', { detail: message, bubbles: true }));
   }
 
   private startWorker() {
@@ -224,7 +230,7 @@ export class ParticleField extends HTMLElement {
         if (spare && spare !== data.positions && this.worker) this.worker.postMessage({ type: 'recycle', buffer: spare.buffer }, [spare.buffer as ArrayBuffer]);
       }
     });
-    this.worker.addEventListener('error', error => this.failure(error));
+    this.worker.addEventListener('error', error => this.failure(error, 'The motion engine stopped. Reload the page to try again.'));
     this.worker.postMessage({ type: 'settings', settings: this.settings });
     this.worker.postMessage({ type: 'visibility', visible: !document.hidden });
   }
@@ -282,10 +288,25 @@ export class ParticleField extends HTMLElement {
     const delta = this.previous ? Math.min(.05, (now - this.previous) / 1000) : 1 / 60;
     this.previous = now;
     this.frameEma += (delta - this.frameEma) * .04;
-    if (++this.qualityFrames > 90 && this.frameEma > .023 && this.quality > .62) {
-      this.quality = Math.max(.62, this.quality * .78); this.renderer.setQuality(this.quality); this.qualityFrames = 0;
-    } else if (this.qualityFrames > 600 && this.frameEma < .0125 && this.quality < 1) {
-      this.quality = Math.min(1, this.quality * 1.2); this.renderer.setQuality(this.quality); this.qualityFrames = 0;
+    if (this.frameEma > .023) { this.slowFrames++; this.recoveryFrames = 0; }
+    else if (this.frameEma < .018) { this.recoveryFrames++; this.slowFrames = 0; }
+    else { this.slowFrames = 0; this.recoveryFrames = 0; }
+    if (this.slowFrames >= 120 && this.quality > .7) {
+      this.quality = Math.max(.7, this.quality * .82); this.renderer.setQuality(this.quality);
+      this.slowFrames = 0; this.frameEma = 1 / 60;
+    } else if (this.recoveryFrames >= 600 && this.quality < 1) {
+      this.quality = Math.min(1, this.quality * 1.1); this.renderer.setQuality(this.quality);
+      this.recoveryFrames = 0; this.frameEma = 1 / 60;
+    }
+    if (this.settings.paused) { this.fpsStart = 0; this.fpsFrames = 0; }
+    else {
+      if (!this.fpsStart) this.fpsStart = now;
+      this.fpsFrames++;
+      const elapsed = now - this.fpsStart;
+      if (elapsed >= 750) {
+        this.dispatchEvent(new CustomEvent('mesh-fps', { detail: Math.round(this.fpsFrames * 1000 / elapsed), bubbles: true }));
+        this.fpsStart = now; this.fpsFrames = 0;
+      }
     }
     const blend = 1 - Math.exp(-delta * 40);
     for (let i = 0; i < this.displayed.length; i++) this.displayed[i] += (this.target[i]! - this.displayed[i]!) * blend;

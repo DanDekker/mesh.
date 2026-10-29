@@ -20,6 +20,8 @@ export class MeshApp extends HTMLElement {
     } catch { /* Storage is optional. */ }
     this.addEventListener('mesh-settings', event => this.configure((event as CustomEvent).detail), { signal });
     this.addEventListener('mesh-error', event => { this.querySelector('.field-message')!.textContent = (event as CustomEvent).detail; }, { signal });
+    this.addEventListener('mesh-fps', event => { this.querySelector('.fps')!.textContent = `${(event as CustomEvent<number>).detail} fps`; }, { signal });
+    this.addEventListener('mesh-action', event => this.action((event as CustomEvent<string>).detail), { signal });
     window.addEventListener('keydown', event => {
       if (event.altKey || event.ctrlKey || event.metaKey || (event.target as Element)?.closest('input,textarea,select,[contenteditable="true"]')) return;
       const form = FORMS[Number(event.key) - 1];
@@ -50,10 +52,13 @@ export class MeshApp extends HTMLElement {
 
   private reflect() {
     this.querySelector<HTMLElement>('.gallery')!.dataset.paused = String(this.settings.paused);
+    const fps = this.querySelector<HTMLElement>('.fps')!;
+    if (this.settings.paused) fps.textContent = 'Paused';
+    else if (fps.textContent === 'Paused') fps.textContent = '-- fps';
     if (this.controls instanceof MeshControls) this.controls.reflect(this.settings);
   }
 
-  private async action(action: string) {
+  private action(action: string) {
     if (action === 'pause') this.configure({ paused: !this.settings.paused });
     if (action === 'reset') this.field?.reset();
   }

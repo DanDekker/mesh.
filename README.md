@@ -37,9 +37,11 @@ Open **http://127.0.0.1:3000**. The dev command rebuilds browser files as source
 | Tap or click | Send a ripple. Hold to strengthen it; tap twice for a stronger pulse. |
 | Scroll | Wind or unwind the form. |
 | 1–6 or arrow keys | Switch between the six forms. |
-| Space / R | Pause or reset. |
+| Pause / Resume or Space | Pause or resume motion. |
+| Reset or R | Return the active form to its resting shape. |
 
 The page starts paused when your system requests reduced motion.
+The live frame rate appears below the `mesh.` title to help you judge performance on your device.
 
 ## How it works
 

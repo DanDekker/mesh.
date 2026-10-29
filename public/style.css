@@ -21,21 +21,27 @@ particle-field { position: absolute; inset: 0; z-index: 0; outline-offset: -8px 
 .gallery::after { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 1; box-shadow: inset 0 0 140px 45px #090a0b55; background: linear-gradient(180deg,#090a0b55,transparent 18%,transparent 80%,#090a0b55); }
 .masthead { position: absolute; z-index: 3; left: 48px; right: 48px; top: 34px; display: flex; align-items: center; justify-content: space-between; pointer-events: none; }
 .masthead a { pointer-events: auto; }
-.wordmark { font-size: 31px; letter-spacing: -1.9px; font-weight: 570; line-height: 1; padding: 6px 0 10px; }
+.brand { display: flex; flex-direction: column; align-items: flex-start; }
+.wordmark { display: block; font-size: 31px; letter-spacing: -1.9px; font-weight: 570; line-height: 1; padding: 6px 0 0; }
 .wordmark-dot { color: var(--accent); }
+.fps { margin-top: 5px; color: #8ca896; font-size: 10px; font-variant-numeric: tabular-nums; letter-spacing: 1.3px; text-transform: uppercase; }
 .author { display: flex; align-items: center; gap: 13px; font-size: 12px; color: #a1a59a; padding: 12px 0 12px 12px; transition: color .2s; }
 .author:hover { color: #e7e8de; }
 .author svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }
 .gallery-bottom { position: absolute; z-index: 4; bottom: 36px; left: 20px; right: 20px; display: flex; justify-content: center; pointer-events: none; }
 mesh-controls { pointer-events: auto; }
-.control-surface { background: #141615a3; border: 1px solid #b5c2ac14; border-radius: 7px; padding: 5px; box-shadow: 0 6px 30px #0002; backdrop-filter: blur(20px); }
+.control-surface { display: flex; align-items: center; gap: 4px; background: #141615a3; border: 1px solid #b5c2ac14; border-radius: 7px; padding: 5px; box-shadow: 0 6px 30px #0002; backdrop-filter: blur(20px); }
 .forms { display: flex; gap: 3px; }
-.form-button { position: relative; background: transparent; padding: 10px 24px; font-size: 11px; letter-spacing: .2px; color: #7b8276; border-radius: 4px; min-height: 40px; transition: background .2s, color .2s, transform .18s; }
-.form-button:hover { color: #c4e6d0; background: #7ed5a408; }
-.form-button:active { transform: scale(.96); }
+.form-button, .action-button { position: relative; background: transparent; padding: 10px 20px; font-size: 11px; letter-spacing: .2px; color: #9aa69a; border-radius: 4px; min-height: 40px; transition: background .2s, color .2s, transform .18s; }
+.form-button:hover, .action-button:hover { color: #c4e6d0; background: #7ed5a408; }
+.form-button:active, .action-button:active { transform: scale(.96); }
 .form-button.active { color: #a6e7bf; background: #7ed5a412; box-shadow: inset 0 0 0 1px #7ed5a415; }
+.transport { display: flex; gap: 2px; border-left: 1px solid #9bbba026; padding-left: 4px; }
+.action-button { color: #b6c4b9; padding-inline: 14px; }
 .interaction-hint { margin: 11px 0 0; color: #9bac9d; text-align: center; font-size: 11px; letter-spacing: .15px; text-shadow: 0 1px 8px #090a0b; }
 .touch-hint { display: none; }
+.field-message, .static-message { position: absolute; z-index: 3; left: 50%; top: 50%; transform: translate(-50%,-50%); width: min(420px,calc(100% - 40px)); margin: 0; padding: 22px 26px; border: 1px solid #9bbba044; border-radius: 7px; background: #121714ed; color: #e4eee6; text-align: center; font-size: 14px; line-height: 1.5; box-shadow: 0 12px 50px #0008; }
+.field-message:empty { display: none; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 @media (min-width: 1600px) { .masthead { left: 64px; right: 64px; top: 45px; }.gallery-bottom { bottom: 45px; } }
 @media (max-width: 1000px) { .masthead { left: 28px; right: 28px; top: 25px; }.gallery-bottom { bottom: 26px; } }
@@ -44,9 +50,11 @@ mesh-controls { pointer-events: auto; }
   .wordmark { font-size: 28px; }.author { font-size: 11px; gap: 11px; }
   .gallery-bottom { bottom: max(24px, env(safe-area-inset-bottom)); }
   .form-button { padding: 9px 23px; min-height: 42px; }
-  .control-surface { max-width: 340px; }
+  .control-surface { display: block; max-width: 340px; }
   .forms { flex-wrap: wrap; justify-content: center; }
   .form-button { flex: 0 0 calc(25% - 3px); padding-left: 10px; padding-right: 10px; }
+  .transport { justify-content: center; border-left: 0; border-top: 1px solid #9bbba026; padding: 4px 0 0; margin-top: 4px; }
+  .action-button { flex: 1; }
   .pointer-hint { display: none; }.touch-hint { display: inline; }
 }
 @media (max-width: 380px) { .control-surface { max-width: 290px; } }

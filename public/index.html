@@ -27,10 +27,11 @@
         <p class="sr-only">Explore Silk, Orbit, Wave, Knot, Sphere, and Cube. Move, drag, tap, or scroll to shape the field of light.</p>
         <particle-field aria-label="Interactive particle sculpture. Move to disturb, drag to pull, click to ripple." tabindex="0"></particle-field>
         <header class="masthead">
-          <a class="wordmark" href="./" aria-label="Mesh home">mesh<span class="wordmark-dot">.</span></a>
+          <div class="brand"><a class="wordmark" href="./" aria-label="Mesh home">mesh<span class="wordmark-dot">.</span></a><span class="fps">-- fps</span></div>
           <a class="author" href="https://github.com/DanDekker/mesh." target="_blank" rel="noopener noreferrer">GitHub <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 15 15 5M5 5h10v10"/></svg></a>
         </header>
-        <div class="sr-only field-message" role="status" aria-live="polite"></div>
+        <div class="field-message" role="status" aria-live="polite"></div>
+        <noscript><p class="static-message">Enable JavaScript to explore the interactive sculpture.</p></noscript>
         <footer class="gallery-bottom">
           <mesh-controls>
             <div class="control-surface">
@@ -41,6 +42,10 @@
                 <button class="form-button" data-form="knot" aria-pressed="false">Knot</button>
                 <button class="form-button" data-form="sphere" aria-pressed="false">Sphere</button>
                 <button class="form-button" data-form="cube" aria-pressed="false">Cube</button>
+              </div>
+              <div class="transport" role="group" aria-label="Motion controls">
+                <button class="action-button" type="button" data-action="pause" title="Space">Pause</button>
+                <button class="action-button" type="button" data-action="reset" title="R">Reset</button>
               </div>
             </div>
             <p class="interaction-hint"><span class="pointer-hint">Move to disturb · drag to pull · click to ripple · scroll to twist</span><span class="touch-hint">Drag to pull · tap to ripple</span></p>

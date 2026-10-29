@@ -3,6 +3,7 @@ import { SURFACE, SURFACE_SLOTS } from '../shared/surface.ts';
 import { project, inverseRotate } from './camera.ts';
 import { FieldCamera } from './field-camera.ts';
 import { SurfaceGrab } from './grab.ts';
+import { renderPixelRatio } from './quality.ts';
 
 const VERTEX = `#version 300 es
 precision highp float;
@@ -280,7 +281,7 @@ export class FieldRenderer {
 
   resize(width: number, height: number) {
     this.width = Math.max(1, width); this.height = Math.max(1, height); this.aspect = this.width / this.height;
-    this.dpr = Math.min(window.devicePixelRatio || 1, 2) * this.quality;
+    this.dpr = renderPixelRatio(this.width, this.height, window.devicePixelRatio || 1, this.quality);
     const w = Math.round(this.width * this.dpr), h = Math.round(this.height * this.dpr);
     if (this.canvas.width === w && this.canvas.height === h && this.scene) return;
     this.canvas.width = w; this.canvas.height = h;
