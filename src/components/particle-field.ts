@@ -28,6 +28,8 @@ export class ParticleField extends HTMLElement {
   private capturedPointer?: number;
   private travel = 0;
   private pressed = false;
+  private lastWorld = { x: 0, y: 0, z: 0, time: 0 };
+  private pointerVelocity = { x: 0, y: 0, z: 0 };
 
   connectedCallback() {
     this.lifetime = new AbortController();
@@ -62,6 +64,7 @@ export class ParticleField extends HTMLElement {
         const hit = this.renderer.pick(event.clientX, event.clientY);
         this.pointer = hit ? { x: hit.x, y: hit.y, z: hit.z, active: true, down: false, index: hit.index } : { ...IDLE_POINTER };
       }
+      this.trackVelocity(event.timeStamp);
       this.updateContact();
     }, { signal });
     this.addEventListener('pointerdown', event => {
@@ -72,7 +75,9 @@ export class ParticleField extends HTMLElement {
       this.setPointerCapture(event.pointerId);
       const bounds = this.getBoundingClientRect(); this.screen = { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
       this.travel = 0; this.pressed = true; this.press = { x: event.clientX, y: event.clientY };
+      this.pointerVelocity = { x: 0, y: 0, z: 0 }; this.lastWorld.time = 0;
       this.pointer = grab.move(event.clientX, event.clientY);
+      this.trackVelocity(event.timeStamp);
       this.updateContact();
     }, { signal });
     const release = (event: PointerEvent) => {
@@ -119,9 +124,21 @@ export class ParticleField extends HTMLElement {
 
   reset() { this.clearContact(); this.send({ type: 'reset' }); this.requestFrame(); }
 
+  private trackVelocity(time: number) {
+    const p = this.pointer, last = this.lastWorld;
+    if (!p.active) { last.time = 0; this.pointerVelocity = { x: 0, y: 0, z: 0 }; return; }
+    if (last.time) {
+      const dt = Math.max(1 / 240, Math.min(.1, (time - last.time) / 1000)), v = this.pointerVelocity;
+      v.x += ((p.x - last.x) / dt - v.x) * .45; v.y += ((p.y - last.y) / dt - v.y) * .45; v.z += ((p.z - last.z) / dt - v.z) * .45;
+      p.vx = v.x; p.vy = v.y; p.vz = v.z;
+    }
+    this.lastWorld = { x: p.x, y: p.y, z: p.z, time };
+  }
+
   private clearContact() {
     const captured = this.capturedPointer;
     this.capturedPointer = undefined; this.grab = undefined; this.pressed = false;
+    this.lastWorld.time = 0; this.pointerVelocity = { x: 0, y: 0, z: 0 };
     this.pointer = { ...IDLE_POINTER }; this.updateContact();
     if (captured !== undefined && this.hasPointerCapture(captured)) this.releasePointerCapture(captured);
   }

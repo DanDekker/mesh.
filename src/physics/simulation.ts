@@ -96,6 +96,7 @@ export class Simulation {
     const pullX = grabbing ? pointer.x - this.anchors[grabAnchor]! : 0;
     const pullY = grabbing ? pointer.y - this.anchors[grabAnchor + 1]! : 0;
     const pullZ = grabbing ? pointer.z - this.anchors[grabAnchor + 2]! : 0;
+    const pvx = Math.max(-6, Math.min(6, pointer.vx ?? 0)), pvy = Math.max(-6, Math.min(6, pointer.vy ?? 0)), pvz = Math.max(-6, Math.min(6, pointer.vz ?? 0));
     const pulses = this.pulses, pulseRadius = pulses.map(pulse => pulse.age * 2.9);
     const pulseAmplitude = pulses.map(pulse => Math.exp(-pulse.age * 2.2) * pulse.force * 33);
     for (let i = 0; i < COUNT; i++) {
@@ -125,8 +126,10 @@ export class Simulation {
         const dx = x - pointer.x, dy = y - pointer.y, dz = z - pointer.z;
         const d2 = dx * dx + dy * dy + dz * dz;
         if (d2 < 3) {
-          const influence = Math.exp(-d2 * 2.2) * (pointer.down ? -25 : 7);
-          fx += dx * influence; fy += dy * influence; fz += dz * influence;
+          const falloff = Math.exp(-d2 * 2.2);
+          const influence = falloff * (pointer.down ? -25 : 7);
+          const wake = falloff * 1.5;
+          fx += dx * influence + pvx * wake; fy += dy * influence + pvy * wake; fz += dz * influence + pvz * wake;
         }
       }
       for (let k = 0; k < pulses.length; k++) {
@@ -164,6 +167,10 @@ export class Simulation {
     if (this.pulses.length) {
       for (const pulse of this.pulses) pulse.age += dt;
       this.pulses = this.pulses.filter(pulse => pulse.age < 2);
+    }
+    if (pointer.vx || pointer.vy || pointer.vz) {
+      const decay = Math.exp(-dt * 9);
+      pointer.vx = (pointer.vx ?? 0) * decay; pointer.vy = (pointer.vy ?? 0) * decay; pointer.vz = (pointer.vz ?? 0) * decay;
     }
   }
 }

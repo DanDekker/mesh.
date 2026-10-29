@@ -3,7 +3,7 @@ import { SURFACE, SURFACE_GRID, SURFACE_SLOTS } from './surface.ts';
 export type Form = 'silk' | 'orbit' | 'wave' | 'knot' | 'sphere' | 'cube';
 export type Palette = 'alpine';
 export type FieldSettings = { form: Form; turbulence: number; tension: number; paused: boolean; palette: Palette };
-export type Pointer = { x: number; y: number; z: number; active: boolean; down: boolean; index?: number };
+export type Pointer = { x: number; y: number; z: number; active: boolean; down: boolean; index?: number; vx?: number; vy?: number; vz?: number };
 export type WheelKick = { delta: number; x: number; y: number; z: number };
 export const ROWS = 192;
 export const COLUMNS = 40;
