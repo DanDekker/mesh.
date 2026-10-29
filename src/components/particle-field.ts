@@ -105,10 +105,12 @@ export class ParticleField extends HTMLElement {
           this.lastTap = { time: event.timeStamp, x: this.press.x, y: this.press.y };
           this.send({ type: 'pulse', x: this.pointer.x, y: this.pointer.y, z: this.pointer.z, force: Math.min(2, (1 + this.chargeAt(event.timeStamp)) * (again ? 1.5 : 1)) });
           if (again) this.renderer?.wheel(.2);
+          if (event.pointerType === 'touch') navigator.vibrate?.(again ? 10 : 6);
         }
         else if (this.pointer.index !== undefined) {
           const stale = Math.exp(-Math.max(0, event.timeStamp - this.lastWorld.time) / 120), v = this.pointerVelocity;
           this.send({ type: 'fling', index: this.pointer.index, vx: v.x * stale, vy: v.y * stale, vz: v.z * stale });
+          if (event.pointerType === 'touch') navigator.vibrate?.(8);
         }
       }
       this.clearContact();
