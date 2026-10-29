@@ -139,6 +139,11 @@ export class FieldRenderer {
   private normals = new Float32Array(COUNT * 3);
   private stresses = new Float32Array(COUNT);
   private strain = new Float32Array(COUNT);
+  private neighborOffsets = new Int32Array(0);
+  private slotIndex = new Uint16Array(0);
+  private slotCount = 0;
+  private prevPositions = new Float32Array(COUNT * 3);
+  private prevValid = false;
   private camera = new FieldCamera();
   private get reference() { return this.camera.reference; }
   private currentPositions?: Float32Array;
@@ -195,6 +200,22 @@ export class FieldRenderer {
     this.attribute(0, dust, 3, gl.STATIC_DRAW); this.attribute(1, dustNormals, 3, gl.STATIC_DRAW); this.attribute(2, dustUV, 2, gl.STATIC_DRAW);
     gl.bindVertexArray(null);
     gl.disable(gl.DEPTH_TEST);
+    this.buildNeighbors('silk');
+  }
+
+  private buildNeighbors(form: Form) {
+    const surface = isSurface(form), count = surface ? SURFACE_SLOTS : COUNT;
+    this.slotCount = count;
+    this.neighborOffsets = new Int32Array(count * 4);
+    this.slotIndex = new Uint16Array(count);
+    for (let slot = 0; slot < count; slot++) {
+      const row = Math.floor(slot / COLUMNS), column = slot % COLUMNS, at = slot * 4;
+      this.slotIndex[slot] = surface ? SURFACE.canonical[slot]! : slot;
+      this.neighborOffsets[at] = (surface ? SURFACE.neighbors[at]! : gridIndex(form, row - 1, column)) * 3;
+      this.neighborOffsets[at + 1] = (surface ? SURFACE.neighbors[at + 1]! : gridIndex(form, row + 1, column)) * 3;
+      this.neighborOffsets[at + 2] = (surface ? SURFACE.neighbors[at + 2]! : gridIndex(form, row, column - 1)) * 3;
+      this.neighborOffsets[at + 3] = (surface ? SURFACE.neighbors[at + 3]! : gridIndex(form, row, column + 1)) * 3;
+    }
   }
 
   private program(vertexSource: string, fragmentSource: string) {
@@ -273,33 +294,40 @@ export class FieldRenderer {
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.edgeBuffer); gl.bindVertexArray(null);
     gl.bindBuffer(gl.ARRAY_BUFFER, this.uvBuffer); gl.bufferData(gl.ARRAY_BUFFER, textureCoordinates(form), gl.STATIC_DRAW);
     this.stresses.fill(0);
+    this.buildNeighbors(form);
+    this.prevValid = false;
   }
 
-  private geometry(positions: Float32Array) {
-    const gl = this.gl;
-    const surface = isSurface(this.form), count = surface ? SURFACE_SLOTS : COUNT;
-    this.normals.fill(0); this.strain.fill(0);
-    for (let slot = 0; slot < count; slot++) {
-      const index = surface ? SURFACE.canonical[slot]! : slot, a = index * 3;
-      const row = Math.floor(slot / COLUMNS), column = slot % COLUMNS, neighbors = slot * 4;
-      const x0 = (surface ? SURFACE.neighbors[neighbors]! : gridIndex(this.form, row - 1, column)) * 3;
-      const x1 = (surface ? SURFACE.neighbors[neighbors + 1]! : gridIndex(this.form, row + 1, column)) * 3;
-      const y0 = (surface ? SURFACE.neighbors[neighbors + 2]! : gridIndex(this.form, row, column - 1)) * 3;
-      const y1 = (surface ? SURFACE.neighbors[neighbors + 3]! : gridIndex(this.form, row, column + 1)) * 3;
+  private geometry(positions: Float32Array, delta: number) {
+    const gl = this.gl, offsets = this.neighborOffsets, reference = this.reference, normals = this.normals;
+    normals.fill(0); this.strain.fill(0);
+    for (let slot = 0; slot < this.slotCount; slot++) {
+      const index = this.slotIndex[slot]!, a = index * 3, at = slot * 4;
+      const x0 = offsets[at]!, x1 = offsets[at + 1]!, y0 = offsets[at + 2]!, y1 = offsets[at + 3]!;
       const ax = positions[x1]! - positions[x0]!, ay = positions[x1 + 1]! - positions[x0 + 1]!, az = positions[x1 + 2]! - positions[x0 + 2]!;
       const bx = positions[y1]! - positions[y0]!, by = positions[y1 + 1]! - positions[y0 + 1]!, bz = positions[y1 + 2]! - positions[y0 + 2]!;
       const nx = ay * bz - az * by, ny = az * bx - ax * bz, nz = ax * by - ay * bx;
-      const length = Math.hypot(nx, ny, nz) || 1;
-      this.normals[a] += nx / length; this.normals[a + 1] += ny / length; this.normals[a + 2] += nz / length;
-      const referenceLength = Math.hypot(this.reference[x1]! - this.reference[x0]!, this.reference[x1 + 1]! - this.reference[x0 + 1]!, this.reference[x1 + 2]! - this.reference[x0 + 2]!) + 1e-5;
-      const stretch = Math.min(1, Math.abs(Math.hypot(ax, ay, az) / referenceLength - 1) * 1.4);
-      this.strain[index] = Math.max(this.strain[index]!, stretch);
+      const inverse = 1 / (Math.sqrt(nx * nx + ny * ny + nz * nz) || 1);
+      normals[a] += nx * inverse; normals[a + 1] += ny * inverse; normals[a + 2] += nz * inverse;
+      const rx = reference[x1]! - reference[x0]!, ry = reference[x1 + 1]! - reference[x0 + 1]!, rz = reference[x1 + 2]! - reference[x0 + 2]!;
+      const referenceLength = Math.sqrt(rx * rx + ry * ry + rz * rz) + 1e-5;
+      const stretch = Math.min(1, Math.abs(Math.sqrt(ax * ax + ay * ay + az * az) / referenceLength - 1) * 1.4);
+      if (stretch > this.strain[index]!) this.strain[index] = stretch;
     }
+    const glowScale = this.prevValid ? .22 / Math.max(delta, 1 / 240) : 0, previous = this.prevPositions;
     for (const index of this.pointList) {
-      const at = index * 3, length = Math.hypot(this.normals[at]!, this.normals[at + 1]!, this.normals[at + 2]!) || 1;
-      this.normals[at] /= length; this.normals[at + 1] /= length; this.normals[at + 2] /= length;
-      this.stresses[index] += (this.strain[index]! - this.stresses[index]!) * .17;
+      const at = index * 3, nx = normals[at]!, ny = normals[at + 1]!, nz = normals[at + 2]!;
+      const inverse = 1 / (Math.sqrt(nx * nx + ny * ny + nz * nz) || 1);
+      normals[at] = nx * inverse; normals[at + 1] = ny * inverse; normals[at + 2] = nz * inverse;
+      let target = this.strain[index]!;
+      if (glowScale) {
+        const dx = positions[at]! - previous[at]!, dy = positions[at + 1]! - previous[at + 1]!, dz = positions[at + 2]! - previous[at + 2]!;
+        const glow = Math.min(1, Math.sqrt(dx * dx + dy * dy + dz * dz) * glowScale) * .55;
+        if (glow > target) target = glow;
+      }
+      this.stresses[index] += (target - this.stresses[index]!) * .17;
     }
+    previous.set(positions); this.prevValid = true;
     gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer); gl.bufferSubData(gl.ARRAY_BUFFER, 0, positions);
     gl.bindBuffer(gl.ARRAY_BUFFER, this.normalBuffer); gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.normals);
     gl.bindBuffer(gl.ARRAY_BUFFER, this.stressBuffer); gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.stresses);
@@ -332,7 +360,7 @@ export class FieldRenderer {
     this.wheelEnergy *= Math.exp(-delta * 5.5);
     this.contactStrength += ((this.contact.active ? (this.contact.down ? 1 : .35) : 0) - this.contactStrength) * (1 - Math.exp(-delta * 14));
     this.currentPositions = positions;
-    this.geometry(positions);
+    this.geometry(positions, delta);
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.scene.framebuffer); gl.viewport(0, 0, this.scene.width, this.scene.height); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT);
     gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
     gl.bindVertexArray(this.dustVAO); this.meshUniforms(this.points, time, 1); gl.drawArrays(gl.POINTS, 0, this.dustCount);
