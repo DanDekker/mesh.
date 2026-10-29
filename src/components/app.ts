@@ -24,6 +24,11 @@ export class MeshApp extends HTMLElement {
       if (event.altKey || event.ctrlKey || event.metaKey || (event.target as Element)?.closest('input,textarea,select,[contenteditable="true"]')) return;
       const form = FORMS[Number(event.key) - 1];
       if (form) { event.preventDefault(); this.configure({ form }); }
+      if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+        event.preventDefault();
+        const step = event.key === 'ArrowRight' ? 1 : -1;
+        this.configure({ form: FORMS[(FORMS.indexOf(this.settings.form) + step + FORMS.length) % FORMS.length]! });
+      }
       if (event.key.toLowerCase() === 'r') { event.preventDefault(); this.action('reset'); }
       if (event.code === 'Space' && !(event.target as Element)?.closest('button,a')) { event.preventDefault(); this.action('pause'); }
     }, { signal });

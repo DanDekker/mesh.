@@ -18,7 +18,8 @@ font downloads, CDNs, or runtime services.
 
 Silk, Orbit, Knot, Sphere and Cube are closed. Wave is open. Mouse and touch disturb the
 field; dragging pulls it, a tap releases a ripple, and scrolling winds or unwinds
-the surface. Keys 1–6 change the
+the surface; flick a drag to throw it, hold a press to deepen the ripple, and
+tap twice for a stronger one. Keys 1–6 or the arrow keys change the
 form, Space pauses, and R resets. Reduced-motion preferences start it paused.
 
 The public checkout includes an independent browser simulation. An optional
