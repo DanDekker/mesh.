@@ -13,8 +13,8 @@ export class ParticleField extends HTMLElement {
   private resizeObserver?: ResizeObserver;
   private lifetime?: AbortController;
   private settings = { ...DEFAULT_SETTINGS };
-  private target = new Float32Array(COUNT * 3);
-  private displayed = new Float32Array(COUNT * 3);
+  private target: Float32Array = new Float32Array(COUNT * 3);
+  private displayed: Float32Array = new Float32Array(COUNT * 3);
   private targetTime = 0;
   private displayedTime = 0;
   private raf = 0;
