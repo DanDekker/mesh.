@@ -196,7 +196,7 @@ export class ParticleField extends HTMLElement {
     this.feedback.style.opacity = this.pointer.active ? '1' : '0';
     if (!this.pointer.active) { this.reticle.seeded = false; return; }
     const ring = this.reticle, dt = Math.min(delta, .05);
-    if (!ring.seeded) { ring.x = this.screen.x; ring.y = this.screen.y; ring.seeded = true; }
+    if (!ring.seeded) { ring.x = this.screen.x; ring.y = this.screen.y; ring.vx = 0; ring.vy = 0; ring.seeded = true; }
     ring.vx += ((this.screen.x - ring.x) * 420 - ring.vx * 32) * dt; ring.x += ring.vx * dt;
     ring.vy += ((this.screen.y - ring.y) * 420 - ring.vy * 32) * dt; ring.y += ring.vy * dt;
     const charge = this.chargeAt(performance.now());
