@@ -1,13 +1,17 @@
 /// <reference lib="webworker" />
+import { FramePool } from './frame-pool.ts';
 import { Simulation } from './simulation.ts';
 import { COUNT, HZ, type FieldSettings, type Pointer } from '../shared/field.ts';
 
 const simulation = new Simulation();
-let previous = performance.now(), remainder = 0, lastSent = 0, visible = true, spare: Float32Array | undefined;
+let previous = performance.now(), remainder = 0, lastSent = 0, visible = true, pending = false;
+const frames = new FramePool(COUNT * 3);
 const worker = self as unknown as DedicatedWorkerGlobalScope;
 function send() {
-  const positions = spare ?? new Float32Array(COUNT * 3);
-  spare = undefined;
+  pending = true;
+  const positions = frames.take();
+  if (!positions) return;
+  pending = false;
   positions.set(simulation.positions);
   worker.postMessage({ type: 'frame', positions, time: simulation.time, form: simulation.settings.form }, [positions.buffer]);
 }
@@ -19,7 +23,10 @@ worker.onmessage = ({ data }: MessageEvent) => {
   if (data.type === 'wheel' && !simulation.settings.paused) simulation.swirl(data.kick);
   if (data.type === 'reset') { simulation.reset(); send(); }
   if (data.type === 'visibility') { visible = data.visible; previous = performance.now(); remainder = 0; }
-  if (data.type === 'recycle' && data.buffer instanceof ArrayBuffer && data.buffer.byteLength === COUNT * 12) spare = new Float32Array(data.buffer);
+  if (data.type === 'recycle' && data.buffer instanceof ArrayBuffer) {
+    frames.recycle(data.buffer);
+    if (pending) send();
+  }
 };
 setInterval(() => {
   const now = performance.now();

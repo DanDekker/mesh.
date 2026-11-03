@@ -1,0 +1,4 @@
+- Keep commit messages brief.
+- Author commits as dandekker <122179463+DanDekker@users.noreply.github.com>.
+- Do not add co-author trailers or tool attribution to commits.
+- Keep the project dependency-free and run `bun run check` before committing.

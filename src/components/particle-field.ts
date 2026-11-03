@@ -194,6 +194,7 @@ export class ParticleField extends HTMLElement {
   private drawContact(delta: number) {
     if (!this.feedback || !this.renderer) return;
     this.feedback.style.opacity = this.pointer.active ? '1' : '0';
+    if (!this.pointer.active) { this.reticle.seeded = false; return; }
     const ring = this.reticle, dt = Math.min(delta, .05);
     if (!ring.seeded) { ring.x = this.screen.x; ring.y = this.screen.y; ring.seeded = true; }
     ring.vx += ((this.screen.x - ring.x) * 420 - ring.vx * 32) * dt; ring.x += ring.vx * dt;
@@ -219,6 +220,7 @@ export class ParticleField extends HTMLElement {
 
   private startWorker() {
     if (this.worker || !this.isConnected) return;
+    this.workerTarget = undefined;
     this.worker = new Worker(new URL('worker.js', document.baseURI), { type: 'module', name: 'mesh-field' });
     this.worker.addEventListener('message', ({ data }) => {
       if (this.privateActive || data.type !== 'frame') return;

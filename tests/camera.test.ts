@@ -91,3 +91,14 @@ test('dragging holds the camera and release frames the resting surface', () => {
   expect(Math.abs(camera.view.center[0]! - before.center[0]!)).toBeLessThan(.001);
   expect(Math.abs(camera.view.scale - before.scale)).toBeLessThan(.001);
 });
+
+test('cached camera references track form changes, resets, and animated shapes', () => {
+  const camera = new FieldCamera(), expected = new Float32Array(COUNT * 3);
+  for (const form of [...FORMS, ...FORMS.toReversed()]) {
+    for (const time of [0, 10, 10, 30, 0]) {
+      camera.update(form, time, 1 / 60, false);
+      writeShape(expected, form, time);
+      expect(camera.reference).toEqual(expected);
+    }
+  }
+});

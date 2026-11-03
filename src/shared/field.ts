@@ -26,20 +26,31 @@ export function normalizeSettings(input: Partial<FieldSettings>, previous = DEFA
   };
 }
 
+const surfaceShapes = new Map<Form, Float64Array>();
+
 // Original presentation geometry. No engine source or engine assets are used.
 export function writeShape(target: Float32Array, form: Form, time = 0, torsion = 0): void {
   if (isSurface(form)) {
     target.fill(0);
-    const middle = (SURFACE_GRID - 1) / 2;
+    let base = surfaceShapes.get(form);
+    if (!base) {
+      base = new Float64Array(SURFACE_SLOTS * 3);
+      const middle = (SURFACE_GRID - 1) / 2;
+      for (let index = 0; index < SURFACE_SLOTS; index++) {
+        const at = index * 3;
+        let x = SURFACE.coordinates[at]! / middle, y = SURFACE.coordinates[at + 1]! / middle, z = SURFACE.coordinates[at + 2]! / middle;
+        if (form === 'sphere') {
+          const xx = x * x, yy = y * y, zz = z * z;
+          x *= 1.36 * Math.sqrt(1 - yy / 2 - zz / 2 + yy * zz / 3);
+          y *= 1.36 * Math.sqrt(1 - zz / 2 - xx / 2 + zz * xx / 3);
+          z *= 1.36 * Math.sqrt(1 - xx / 2 - yy / 2 + xx * yy / 3);
+        } else { x *= 1.04; y *= 1.04; z *= 1.04; }
+        base[at] = x; base[at + 1] = y; base[at + 2] = z;
+      }
+      surfaceShapes.set(form, base);
+    }
     for (let index = 0; index < SURFACE_SLOTS; index++) {
-      const at = index * 3;
-      let x = SURFACE.coordinates[at]! / middle, y = SURFACE.coordinates[at + 1]! / middle, z = SURFACE.coordinates[at + 2]! / middle;
-      if (form === 'sphere') {
-        const xx = x * x, yy = y * y, zz = z * z;
-        x *= 1.36 * Math.sqrt(1 - yy / 2 - zz / 2 + yy * zz / 3);
-        y *= 1.36 * Math.sqrt(1 - zz / 2 - xx / 2 + zz * xx / 3);
-        z *= 1.36 * Math.sqrt(1 - xx / 2 - yy / 2 + xx * yy / 3);
-      } else { x *= 1.04; y *= 1.04; z *= 1.04; }
+      const at = index * 3, x = base[at]!, y = base[at + 1]!, z = base[at + 2]!;
       const twist = torsion * y * .8;
       target[at] = x * Math.cos(twist) - z * Math.sin(twist);
       target[at + 1] = y;
@@ -51,38 +62,41 @@ export function writeShape(target: Float32Array, form: Form, time = 0, torsion =
   for (let row = 0; row < ROWS; row++) {
     const u = row / (form === 'wave' ? ROWS - 1 : ROWS) * tau;
     const cu = Math.cos(u), su = Math.sin(u);
-    for (let column = 0; column < COLUMNS; column++) {
-      const v = column / (form === 'orbit' ? COLUMNS : COLUMNS - 1) * 2 - 1;
-      const at = (row * COLUMNS + column) * 3;
-      if (form === 'silk') {
-        const twist = u + .2 * Math.sin(time * .17) + torsion * Math.sin(u);
-        const width = v * (.66 + .1 * Math.cos(u * 3 + time * .11));
-        const radius = 1.48 + width * Math.cos(twist);
+    // These values are shared by every column in the row.
+    if (form === 'silk' || form === 'knot') {
+      const silk = form === 'silk';
+      const twist = silk ? u + .2 * Math.sin(time * .17) + torsion * su : u * 2 + torsion * su + .15 * Math.sin(time * .16);
+      const widthScale = silk ? .66 + .1 * Math.cos(u * 3 + time * .11) : .24 + .025 * Math.sin(u * 2 + time * .14);
+      const radiusBase = silk ? 1.48 : 1.05 + .36 * Math.cos(u * 3);
+      const height = silk ? .22 * Math.sin(u * 2 + time * .15) : .5 * Math.sin(u * 3);
+      const ct = Math.cos(twist), st = Math.sin(twist);
+      const cx = silk ? cu : Math.cos(u * 2), sz = silk ? su : Math.sin(u * 2);
+      for (let column = 0; column < COLUMNS; column++) {
+        const width = (column / (COLUMNS - 1) * 2 - 1) * widthScale;
+        const radius = radiusBase + width * ct, at = (row * COLUMNS + column) * 3;
+        target[at] = radius * cx;
+        target[at + 1] = silk ? width * st + height : height + width * st;
+        target[at + 2] = radius * sz;
+      }
+    } else if (form === 'orbit') {
+      const twist = torsion * su * 1.2, tube = .39 + .06 * Math.sin(u * 3 + time * .2);
+      const height = .32 * Math.sin(u * 3 + time * .12), lift = torsion * .12 * Math.sin(u * 2);
+      for (let column = 0; column < COLUMNS; column++) {
+        const angle = (column / COLUMNS * 2 - 1) * Math.PI + twist;
+        const radius = 1.24 + tube * Math.cos(angle), at = (row * COLUMNS + column) * 3;
         target[at] = radius * cu;
-        target[at + 1] = width * Math.sin(twist) + .22 * Math.sin(u * 2 + time * .15);
+        target[at + 1] = tube * Math.sin(angle) + height + lift;
         target[at + 2] = radius * su;
-      } else if (form === 'orbit') {
-        const angle = v * Math.PI + torsion * Math.sin(u) * 1.2;
-        const tube = .39 + .06 * Math.sin(u * 3 + time * .2);
-        const radius = 1.24 + tube * Math.cos(angle);
-        target[at] = radius * cu;
-        target[at + 1] = tube * Math.sin(angle) + .32 * Math.sin(u * 3 + time * .12) + torsion * .12 * Math.sin(u * 2);
-        target[at + 2] = radius * su;
-      } else if (form === 'knot') {
-        const twist = u * 2 + torsion * Math.sin(u) + .15 * Math.sin(time * .16);
-        const width = v * (.24 + .025 * Math.sin(u * 2 + time * .14));
-        const radius = 1.05 + .36 * Math.cos(u * 3) + width * Math.cos(twist);
-        target[at] = radius * Math.cos(u * 2);
-        target[at + 1] = .5 * Math.sin(u * 3) + width * Math.sin(twist);
-        target[at + 2] = radius * Math.sin(u * 2);
-      } else {
-        const a = (row / (ROWS - 1) * 2 - 1) * 2.25;
-        const b = v * 1.18;
+      }
+    } else {
+      const a = (row / (ROWS - 1) * 2 - 1) * 2.25, twist = torsion * a * .8;
+      const ct = Math.cos(twist), st = Math.sin(twist);
+      for (let column = 0; column < COLUMNS; column++) {
+        const b = (column / (COLUMNS - 1) * 2 - 1) * 1.18, at = (row * COLUMNS + column) * 3;
         const height = .38 * Math.sin(a * 2.1 + b * 1.2 + time * .22) + .17 * Math.cos(b * 3 - a + time * .18);
-        const twist = torsion * a * .8;
         target[at] = a;
-        target[at + 1] = height * Math.cos(twist) - b * Math.sin(twist);
-        target[at + 2] = height * Math.sin(twist) + b * Math.cos(twist);
+        target[at + 1] = height * ct - b * st;
+        target[at + 2] = height * st + b * ct;
       }
     }
   }

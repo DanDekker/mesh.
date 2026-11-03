@@ -1,4 +1,4 @@
-import { COUNT, writeShape, type Form } from '../shared/field.ts';
+import { COUNT, isSurface, writeShape, type Form } from '../shared/field.ts';
 import { fit, type View } from './camera.ts';
 
 export class FieldCamera {
@@ -7,11 +7,16 @@ export class FieldCamera {
   private fitted = false;
   private time = 0;
   private previous = 0;
+  private form?: Form;
+  private referenceTime = NaN;
 
   resize(aspect: number) { this.view.aspect = aspect; this.fitted = false; }
 
   update(form: Form, time: number, delta: number, held: boolean) {
-    writeShape(this.reference, form, time);
+    if (form !== this.form || (!isSurface(form) && time !== this.referenceTime)) {
+      writeShape(this.reference, form, time);
+      this.form = form; this.referenceTime = time;
+    }
     if (time < this.previous - .2) this.time = 0;
     if (!held) this.time += Math.max(0, Math.min(.1, time - this.previous));
     this.previous = time;
