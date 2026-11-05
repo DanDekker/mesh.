@@ -45,6 +45,23 @@ test('private streaming is absent without an adapter', async () => {
   expect((await fetch(new URL('field', base))).status).toBe(404);
 });
 
+test('plain HTTP requests do not allocate a private provider', async () => {
+  let allocated = 0;
+  const privateInstance = createServer({ port: 0, hostname: '127.0.0.1', privateFactory: topology => {
+    allocated++;
+    return { advance() { return { positions: topology.positions, time: 0 }; }, dispose() {} };
+  } });
+  try {
+    for (const method of ['GET', 'HEAD']) {
+      const response = await fetch(new URL('field', privateInstance.server.url), {
+        method, headers: { Origin: privateInstance.server.url.origin },
+      });
+      expect(response.status).toBe(426);
+      expect(allocated).toBe(0);
+    }
+  } finally { privateInstance.stop(); }
+});
+
 test('private adapters cannot be loaded from inside the public repository', async () => {
   const saved = process.env.MESH_PRIVATE_ADAPTER;
   const directory = mkdtempSync(resolve(import.meta.dir, '../..private-test-'));

@@ -40,6 +40,7 @@ export function createServer(options: { port?: number; hostname?: string; privat
       if (url.pathname === '/field') {
         if (!factory) return respond('Not found', 404);
         if (request.headers.get('origin') !== url.origin) return respond('Forbidden', 403);
+        if (request.method !== 'GET' || request.headers.get('upgrade')?.toLowerCase() !== 'websocket') return respond('Upgrade required', 426);
         if (clients.size >= 4) return respond('Field busy', 503);
         let field: PrivateField | undefined;
         try {
