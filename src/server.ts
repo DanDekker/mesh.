@@ -35,7 +35,7 @@ export function createServer(options: { port?: number; hostname?: string; privat
     async fetch(request, server) {
       const url = new URL(request.url);
       const respond = (text: string, status: number) => new Response(text, { status, headers: HEADERS });
-      if (request.method !== 'GET' && request.method !== 'HEAD') return respond('Method not allowed', 405);
+      if (request.method !== 'GET' && request.method !== 'HEAD') return new Response('Method not allowed', { status: 405, headers: { ...HEADERS, Allow: 'GET, HEAD' } });
       if (url.pathname === '/api/field') return Response.json({ private: Boolean(factory) }, { headers: HEADERS });
       if (url.pathname === '/field') {
         if (!factory) return respond('Not found', 404);

@@ -25,6 +25,7 @@ test('the API reveals no private implementation and rejects writes', async () =>
   expect(await response.json()).toEqual({ private: false });
   const post = await fetch(base, { method: 'POST', body: '{}' });
   expect(post.status).toBe(405);
+  expect(post.headers.get('allow')).toBe('GET, HEAD');
 });
 
 test('private streaming is absent without an adapter', async () => {
