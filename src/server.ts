@@ -54,7 +54,7 @@ export function createServer(options: { port?: number; hostname?: string; privat
       if (!name) return respond('Not found', 404);
       const file = Bun.file(resolve(ROOT, 'dist', name));
       if (!(await file.exists())) return respond('Run bun run build first', 503);
-      return new Response(request.method === 'HEAD' ? null : file, { headers: { ...HEADERS, 'Content-Type': file.type } });
+      return new Response(request.method === 'HEAD' ? null : file, { headers: { ...HEADERS, 'Content-Type': file.type, 'Content-Length': String(file.size) } });
     },
     websocket: {
       maxPayloadLength: 1024,

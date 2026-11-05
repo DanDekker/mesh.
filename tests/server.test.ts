@@ -20,6 +20,19 @@ test('only the allowlisted browser assets are served', async () => {
   }
 });
 
+test('HEAD preserves asset sizes without sending their contents', async () => {
+  for (const path of ['', 'main.js', 'worker.js', 'style.css', 'icon.svg', 'social.png']) {
+    const url = new URL(path, base);
+    const get = await fetch(url);
+    const size = (await get.arrayBuffer()).byteLength;
+    const head = await fetch(url, { method: 'HEAD' });
+    expect(head.status).toBe(200);
+    expect(head.headers.get('content-type')).toBe(get.headers.get('content-type'));
+    expect(head.headers.get('content-length')).toBe(String(size));
+    expect(await head.text()).toBe('');
+  }
+});
+
 test('the API reveals no private implementation and rejects writes', async () => {
   const response = await fetch(new URL('api/field', base));
   expect(await response.json()).toEqual({ private: false });
