@@ -105,7 +105,6 @@ export class Simulation {
   }
 
   step() {
-    if (this.settings.paused) return;
     const dt = 1 / HZ, p = this.positions, velocity = this.velocities;
     const { turbulence, tension } = this.settings;
     this.time += dt;

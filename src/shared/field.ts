@@ -21,7 +21,8 @@ export function normalizeSettings(input: Partial<FieldSettings>, previous = DEFA
     form: FORMS.includes(input.form!) ? input.form! : previous.form,
     turbulence: unit(input.turbulence, previous.turbulence),
     tension: unit(input.tension, previous.tension),
-    paused: typeof input.paused === 'boolean' ? input.paused : previous.paused,
+    // Keep the provider contract compatible; legacy saved pauses cannot stop motion.
+    paused: false,
     palette: PALETTES.includes(input.palette!) ? input.palette! : previous.palette,
   };
 }

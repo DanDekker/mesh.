@@ -92,21 +92,25 @@ describe('field geometry', () => {
 });
 
 describe('standalone simulation', () => {
-  test('motion is deterministic and pause preserves state', () => {
+  test('motion stays deterministic when legacy settings request a pause', () => {
     const a = new Simulation(), b = new Simulation();
     for (let i = 0; i < 20; i++) { a.step(); b.step(); }
     expect(a.positions).toEqual(b.positions);
     const before = a.positions.slice(), time = a.time;
-    a.configure({ paused: true }); a.step();
-    expect(a.positions).toEqual(before); expect(a.time).toBe(time);
+    a.configure({ paused: true }); a.step(); b.step();
+    expect(a.positions).toEqual(b.positions);
+    expect(a.positions).not.toEqual(before); expect(a.time).toBeGreaterThan(time);
+    expect(a.settings.paused).toBe(false);
   });
 
-  test('switching form while paused updates the sculpture and keeps it paused', () => {
+  test('legacy paused settings cannot stop a new simulation or form change', () => {
     const simulation = new Simulation({ paused: true });
     simulation.configure({ form: 'orbit' });
     const expected = new Float32Array(COUNT * 3); writeShape(expected, 'orbit');
     expect(simulation.positions).toEqual(expected);
-    expect(simulation.settings.paused).toBe(true);
+    expect(simulation.settings.paused).toBe(false);
+    simulation.step();
+    expect(simulation.time).toBeGreaterThan(0);
   });
 
   test('switching shapes clears old folds and twist without resetting the clock', () => {

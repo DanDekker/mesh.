@@ -20,8 +20,7 @@ worker.onmessage = ({ data }: MessageEvent) => {
   if (data.type === 'pointer') simulation.pointer = data.pointer as Pointer;
   if (data.type === 'pulse') simulation.pulse(data.x, data.y, data.z, data.force);
   if (data.type === 'fling') simulation.fling(data.index, data.vx, data.vy, data.vz);
-  if (data.type === 'wheel' && !simulation.settings.paused) simulation.swirl(data.kick);
-  if (data.type === 'reset') { simulation.reset(); send(); }
+  if (data.type === 'wheel') simulation.swirl(data.kick);
   if (data.type === 'visibility') { visible = data.visible; previous = performance.now(); remainder = 0; }
   if (data.type === 'recycle' && data.buffer instanceof ArrayBuffer) {
     frames.recycle(data.buffer);
@@ -32,7 +31,7 @@ setInterval(() => {
   const now = performance.now();
   const elapsed = Math.min((now - previous) / 1000, .08);
   previous = now;
-  if (!visible || simulation.settings.paused) { remainder = 0; return; }
+  if (!visible) { remainder = 0; return; }
   remainder += elapsed;
   let steps = 0;
   while (remainder >= 1 / HZ && steps < 7) { simulation.step(); remainder -= 1 / HZ; steps++; }

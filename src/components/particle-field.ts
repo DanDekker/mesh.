@@ -19,7 +19,6 @@ export class ParticleField extends HTMLElement {
   private displayedTime = 0;
   private raf = 0;
   private previous = 0;
-  private dirtyUntil = 0;
   private connectionTimer?: ReturnType<typeof setTimeout>;
   private pointer: Pointer = { ...IDLE_POINTER };
   private feedback?: SVGSVGElement;
@@ -56,9 +55,9 @@ export class ParticleField extends HTMLElement {
     root.innerHTML = `<style>
       :host{display:block;overflow:hidden;touch-action:none}
       canvas{display:block;width:100%;height:100%;outline:0}
-      .feedback{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;color:#8ce5bb;opacity:0;transition:opacity .25s}
+      .feedback{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;color:#9bd5ff;opacity:0;transition:opacity .25s}
       .reticle{fill:none;stroke:currentColor;stroke-width:.75;opacity:.6;transition:r .18s}
-      .contact{fill:#d2f7df;opacity:.85}
+      .contact{fill:#d9efff;opacity:.85}
       .tether{stroke:currentColor;stroke-width:.65;opacity:0}
     </style><canvas aria-hidden="true"></canvas><svg class="feedback" aria-hidden="true"><line class="tether"/><circle class="reticle" r="6"/><circle class="contact" r="1.8"/></svg>`;
     this.canvas = root.querySelector('canvas')!;
@@ -105,7 +104,7 @@ export class ParticleField extends HTMLElement {
     }, { signal });
     const release = (event: PointerEvent) => {
       if (!event.isPrimary || event.pointerId !== this.capturedPointer) return;
-      if (event.type === 'pointerup' && this.pressed && !this.settings.paused) {
+      if (event.type === 'pointerup' && this.pressed) {
         if (this.travel < 5) {
           const again = event.timeStamp - this.lastTap.time < 350 && Math.hypot(this.press.x - this.lastTap.x, this.press.y - this.lastTap.y) < 44;
           this.lastTap = { time: event.timeStamp, x: this.press.x, y: this.press.y };
@@ -126,7 +125,7 @@ export class ParticleField extends HTMLElement {
     this.addEventListener('pointerleave', () => { this.cursorInside = false; this.lastHoverPick = -Infinity; if (!this.pointer.down) { this.pointer.active = false; this.updateContact(); } else this.updateContact(); }, { signal });
     this.addEventListener('wheel', event => {
       event.preventDefault();
-      if (!this.renderer || this.settings.paused || this.pointer.down) return;
+      if (!this.renderer || this.pointer.down) return;
       const delta = wheelDelta(event.deltaY, event.deltaMode, this.clientHeight);
       const axis = this.renderer.axis();
       this.lastInteract = performance.now();
@@ -158,8 +157,6 @@ export class ParticleField extends HTMLElement {
     this.renderer?.topology(this.settings.form);
     this.send({ type: 'settings', settings: this.settings }); this.requestFrame();
   }
-
-  reset() { this.clearContact(); this.send({ type: 'reset' }); this.requestFrame(); }
 
   private trackVelocity(time: number) {
     const p = this.pointer, last = this.lastWorld;
@@ -280,7 +277,6 @@ export class ParticleField extends HTMLElement {
   private resize() { if (this.renderer) { if (this.grab) this.clearContact(); this.renderer.resize(this.clientWidth, this.clientHeight); this.feedback?.setAttribute('viewBox', `0 0 ${this.clientWidth} ${this.clientHeight}`); this.requestFrame(); } }
 
   private requestFrame() {
-    this.dirtyUntil = performance.now() + 1000;
     if (!this.raf && !document.hidden) this.raf = requestAnimationFrame(time => this.render(time));
   }
 
@@ -300,26 +296,23 @@ export class ParticleField extends HTMLElement {
       this.quality = Math.min(1, this.quality * 1.1); this.renderer.setQuality(this.quality);
       this.recoveryFrames = 0; this.frameEma = 1 / 60;
     }
-    if (this.settings.paused) { this.fpsStart = 0; this.fpsFrames = 0; }
-    else {
-      if (!this.fpsStart) this.fpsStart = now;
-      this.fpsFrames++;
-      const elapsed = now - this.fpsStart;
-      if (elapsed >= 750) {
-        this.dispatchEvent(new CustomEvent('mesh-fps', { detail: Math.round(this.fpsFrames * 1000 / elapsed), bubbles: true }));
-        this.fpsStart = now; this.fpsFrames = 0;
-      }
+    if (!this.fpsStart) this.fpsStart = now;
+    this.fpsFrames++;
+    const elapsed = now - this.fpsStart;
+    if (elapsed >= 750) {
+      this.dispatchEvent(new CustomEvent('mesh-fps', { detail: Math.round(this.fpsFrames * 1000 / elapsed), bubbles: true }));
+      this.fpsStart = now; this.fpsFrames = 0;
     }
     const blend = 1 - Math.exp(-delta * 40);
     for (let i = 0; i < this.displayed.length; i++) this.displayed[i] += (this.target[i]! - this.displayed[i]!) * blend;
     this.displayedTime += (this.targetTime - this.displayedTime) * blend;
-    if (!this.settings.paused && now - this.lastInteract > 7000 && now - this.lastIdlePulse > 9000) {
+    if (now - this.lastInteract > 7000 && now - this.lastIdlePulse > 9000) {
       this.lastIdlePulse = now;
       const index = (Math.floor(now / 9000) * 7919) % COUNT, at = index * 3;
       this.send({ type: 'pulse', x: this.displayed[at]!, y: this.displayed[at + 1]!, z: this.displayed[at + 2]!, force: .35 });
     }
     this.renderer.render(this.displayed, this.displayedTime, delta);
     this.drawContact(delta);
-    if (!this.settings.paused || now < this.dirtyUntil) this.raf = requestAnimationFrame(time => this.render(time));
+    this.raf = requestAnimationFrame(time => this.render(time));
   }
 }

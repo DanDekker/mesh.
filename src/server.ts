@@ -97,7 +97,7 @@ export function createServer(options: { port?: number; hostname?: string; privat
     const now = performance.now();
     for (const socket of clients) {
       const session = socket.data, elapsed = Math.max(0, Math.min(80, now - session.previous)); session.previous = now;
-      if (!session.visible || (session.settings.paused && !session.dirty)) continue;
+      if (!session.visible) continue;
       try {
         const frame = session.field.advance({ elapsedNanoseconds: Math.round(elapsed * 1e6), settings: session.settings, pointer: session.pointer, pulses: session.pulses, kicks: session.kicks, flings: session.flings, reset: session.reset });
         session.pulses.length = 0; session.kicks.length = 0; session.flings.length = 0; session.reset = false;

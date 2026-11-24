@@ -11,17 +11,13 @@ export class MeshApp extends HTMLElement {
   connectedCallback() {
     this.lifetime = new AbortController();
     const { signal } = this.lifetime;
-    const media = matchMedia('(prefers-reduced-motion: reduce)');
-    this.settings.paused = media.matches;
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) this.settings = normalizeSettings(JSON.parse(stored), this.settings);
-      if (media.matches) this.settings.paused = true;
     } catch { /* Storage is optional. */ }
     this.addEventListener('mesh-settings', event => this.configure((event as CustomEvent).detail), { signal });
     this.addEventListener('mesh-error', event => { this.querySelector('.field-message')!.textContent = (event as CustomEvent).detail; }, { signal });
     this.addEventListener('mesh-fps', event => { this.querySelector('.fps')!.textContent = `${(event as CustomEvent<number>).detail} fps`; }, { signal });
-    this.addEventListener('mesh-action', event => this.action((event as CustomEvent<string>).detail), { signal });
     window.addEventListener('keydown', event => {
       if (event.altKey || event.ctrlKey || event.metaKey || (event.target as Element)?.closest('input,textarea,select,[contenteditable="true"]')) return;
       const form = FORMS[Number(event.key) - 1];
@@ -31,10 +27,7 @@ export class MeshApp extends HTMLElement {
         const step = event.key === 'ArrowRight' ? 1 : -1;
         this.configure({ form: FORMS[(FORMS.indexOf(this.settings.form) + step + FORMS.length) % FORMS.length]! });
       }
-      if (event.key.toLowerCase() === 'r') { event.preventDefault(); this.action('reset'); }
-      if (event.code === 'Space' && !(event.target as Element)?.closest('button,a')) { event.preventDefault(); this.action('pause'); }
     }, { signal });
-    media.addEventListener('change', event => { if (event.matches) this.configure({ paused: true }); }, { signal });
     this.reflect();
     // Children are upgraded after this custom element, or may already exist.
     customElements.whenDefined('particle-field').then(() => { if (this.isConnected) this.field?.configure(this.settings); });
@@ -51,15 +44,6 @@ export class MeshApp extends HTMLElement {
   }
 
   private reflect() {
-    this.querySelector<HTMLElement>('.gallery')!.dataset.paused = String(this.settings.paused);
-    const fps = this.querySelector<HTMLElement>('.fps')!;
-    if (this.settings.paused) fps.textContent = 'Paused';
-    else if (fps.textContent === 'Paused') fps.textContent = '-- fps';
     if (this.controls instanceof MeshControls) this.controls.reflect(this.settings);
-  }
-
-  private action(action: string) {
-    if (action === 'pause') this.configure({ paused: !this.settings.paused });
-    if (action === 'reset') this.field?.reset();
   }
 }

@@ -47,7 +47,7 @@ void main() {
   float charge=clamp(aStress*.8+contact*.6,0.,1.);
   float light=.3+depth*.6+facing*.7+rim*.5+edge*.2;
   vec3 warm=mix(uColor*.68,uColor,thread*.4+.6);
-  vec3 highlight=mix(uColor,vec3(.81,1.,.88),.75);
+  vec3 highlight=mix(uColor,vec3(.84,.94,1.),.75);
   vColor=mix(warm,highlight,clamp(pow(facing,2.)*.4+edge*.1+charge*.7,0.,1.))*(light+charge*.8+uEnergy*.3);
   vAlpha=(.3+depth*.7)*(1.-uDust*.91);
   gl_PointSize=(1.25+depth*.7+facing*.5+edge*.35+charge*1.4)*uDpr*perspective;
@@ -110,7 +110,7 @@ void main() {
   float halo=exp(-dot(q,q)*3.6);
   vec2 cq=(vUV-uCursor.xy)*vec2(uAspect,1.);
   float candle=exp(-dot(cq,cq)*9.)*uCursor.z;
-  vec3 background=vec3(.027,.031,.030)+uColor*(halo*(.007+.0015*sin(uTime*.4+1.7))+candle*.011);
+  vec3 background=vec3(.027,.030,.035)+uColor*(halo*(.007+.0015*sin(uTime*.4+1.7))+candle*.011);
   vec2 dir=vUV-.5;
   float fringe=.0013*length(dir);
   vec3 scene=vec3(texture(uScene,vUV+dir*fringe).r,texture(uScene,vUV).g,texture(uScene,vUV-dir*fringe).b);
@@ -126,7 +126,7 @@ void main() {
 }`;
 
 type Target = { texture: WebGLTexture; framebuffer: WebGLFramebuffer; width: number; height: number };
-const COLORS: Record<Palette, [number, number, number]> = { alpine: [.24, .83, .52] };
+const COLORS: Record<Palette, [number, number, number]> = { alpine: [.42, .72, 1.0] };
 
 export class FieldRenderer {
   private gl: WebGL2RenderingContext;

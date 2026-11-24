@@ -35,7 +35,7 @@ test('invalid returned buffers do not reopen an exhausted pool', () => {
   expect(pool.take()).toBeUndefined();
 });
 
-test('a paused form change is delivered after a stalled consumer returns a buffer', async () => {
+test('a form change with legacy paused settings is delivered after a stalled consumer returns a buffer', async () => {
   const worker = new Worker(new URL('../src/physics/worker.ts', import.meta.url).href);
   const received: { positions: Float32Array; form: string }[] = [];
   let ready!: () => void;
